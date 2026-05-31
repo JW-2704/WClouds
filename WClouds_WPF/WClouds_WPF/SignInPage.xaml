@@ -15,5 +15,7 @@
         </StackPanel>
         <Button x:Name="SignInButton"  Content="GO!" HorizontalAlignment="Center" Background="LawnGreen" VerticalAlignment="Top" FontSize="20" Width="100" Height="30" Margin="0,350,0,0" Click="SignInButton_Click"></Button>
         <Frame Name="MainFrame" NavigationUIVisibility="Hidden"/>
+        
+        
     </Grid>
 </Page>

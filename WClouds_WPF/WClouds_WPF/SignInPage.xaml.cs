@@ -27,27 +27,34 @@ namespace WClouds_WPF
             InitializeComponent();
         }
 
-        private void SignInButton_Click(object sender, RoutedEventArgs e)
+        private async void SignInButton_Click(object sender, RoutedEventArgs e)
         {
-            
             DataPage dataPage = new DataPage();
             Authenticator authenticator = new Authenticator();
 
             string email = emailTextBox.Text;
             string password = passwordTextBox.Text;
 
-            Task<string> response = authenticator.Login(email, password);
-
-            if (response.IsFaulted)
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
             {
-                MessageBox.Show("Login fehlgeschlagen");
+                MessageBox.Show("Bitte alle Felder ausfüllen.");
+                return;
             }
             else
             {
-                MessageBox.Show("Erfolgreicher Login");
-                SignPagePanel.Visibility = Visibility.Collapsed;
-                MainFrame.Content = dataPage;
-            }
+                try
+                {
+                    string response = await authenticator.Login(email, password);
+
+                    MessageBox.Show("Erfolgreicher Login");
+                    SignPagePanel.Visibility = Visibility.Collapsed;
+                    MainFrame.Content = dataPage;
+                }
+                catch
+                {
+                    MessageBox.Show("Login fehlgeschlagen");
+                }
+            }   
         }
     }
 }

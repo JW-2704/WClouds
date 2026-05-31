@@ -8,8 +8,8 @@ namespace WClouds_WPF.Logic
 {
     public class SavedDirectory : IStorable
     {
-        public List<Info> History { get => throw new NotImplementedException();
-            set => throw new NotImplementedException(); }
+        
         public List<SavedFile> Content { get; }
+        public List<Info> History { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     }
 }

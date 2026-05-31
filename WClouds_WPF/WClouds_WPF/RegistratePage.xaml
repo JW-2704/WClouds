@@ -9,6 +9,18 @@
       Title="RegistratePage">
 
     <Grid>
-        
+        <StackPanel x:Name="RegisterPanel" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBox x:Name="EmailBox" Foreground="Gray" Text="Email" Margin="0,5"/>
+            <PasswordBox x:Name="PasswordBox"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,5">
+                <TextBox x:Name="KeyFilePathBox" IsReadOnly="True" Width="250"/>
+                <Button Content="Datei wählen" Click="SelectKeyFile_Click" Margin="5,0"/>
+            </StackPanel>
+
+            <TextBlock x:Name="KeyPreviewText" Foreground="Gray" FontSize="11" Margin="0,3"/>
+        </StackPanel>
+        <Button x:Name="RegisterButton"  Content="GO!" HorizontalAlignment="Center" Background="LawnGreen" VerticalAlignment="Top" FontSize="20" Width="100" Height="30" Margin="0,350,0,0" Click="SignInButton_Click"></Button>
+        <Frame Name="MainFrame" NavigationUIVisibility="Hidden"/>
     </Grid>
 </Page>
