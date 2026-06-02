@@ -14,20 +14,27 @@ class DBUser(Base):
     storage_plan = Column(Integer)   # in Gigabytes
 
 
+
 class DBFile(Base):
     __tablename__ = "files"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True) # Null means root directory
+    path_id = Column(Integer, ForeignKey("path.id"))
 
 class DBFolder(Base):
     __tablename__ = "folders"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
-    parent_folder_id = Column(Integer, ForeignKey("folders.id"))
+    path_id = Column(Integer, ForeignKey("path.id"))
+
+class DBPath(Base):
+    __tablename__ = "paths"
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String)
+
 
 class DBAccess(Base):
     __tablename__ = "access"
@@ -46,6 +53,7 @@ class DBFileHistory(Base):
     date = Column(DateTime)
     user_id = Column(Integer, ForeignKey("users.id"))
     file_id = Column(Integer, ForeignKey("files.id"))
+    path = Column(ForeignKey("paths.id"))
 
 
 
@@ -57,7 +65,14 @@ class DBFolderHistory(Base):
     date = Column(DateTime)
     user_id = Column(Integer, ForeignKey("users.id"))
     folder_id = Column(Integer, ForeignKey("folders.id"))
+    path = Column(ForeignKey("paths.id"))
 
+class DBStoragePlanKeys(Base):
+    __tablename__ = "subscription_keys"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String)
+    storage = Column(Integer) # in Gigabytes
+    redeemed = Column(Boolean)
 
 
 
