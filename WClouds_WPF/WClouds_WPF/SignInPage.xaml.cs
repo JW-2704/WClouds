@@ -47,6 +47,7 @@ namespace WClouds_WPF
                     string response = await authenticator.Login(email, password);
 
                     MessageBox.Show("Erfolgreicher Login");
+                    MessageBox.Show(response);
                     SignPagePanel.Visibility = Visibility.Collapsed;
                     MainFrame.Content = dataPage;
                 }

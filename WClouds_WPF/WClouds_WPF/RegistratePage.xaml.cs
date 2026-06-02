@@ -52,16 +52,16 @@ namespace WClouds_WPF
             }
         }
 
-        private async void SignInButton_Click(object sender, RoutedEventArgs e)
+        private async void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
             Authenticator authenticator = new Authenticator();
-            DataPage dataPage = new DataPage();
+            SignInPage signInPage = new SignInPage();
 
             string email = EmailBox.Text;
             string password = PasswordBox.Password;
-            string key = KeyFilePathBox.Text;
+            string key = storageKey;
 
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(storageKey))
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(key))
             {
                 MessageBox.Show("Bitte alle Felder ausfüllen und einen Storage Plan auswählen.");
                 return;
@@ -69,10 +69,10 @@ namespace WClouds_WPF
 
             try
             {
-                string response = await authenticator.Register(email, password, storageKey);
+                string response = await authenticator.Register(email, password, key);
 
                 RegisterPanel.Visibility = Visibility.Collapsed;
-                MainFrame.Content = dataPage;
+                MainFrame.Content = signInPage;
             }
             catch
             {

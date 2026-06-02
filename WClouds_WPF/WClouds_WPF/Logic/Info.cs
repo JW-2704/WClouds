@@ -14,5 +14,15 @@ namespace WClouds_WPF.Logic
         public int ChangedUser { get; }
         public int Owner { get; }
         public string Name { get; }
+
+        public Info(DateTime changedDate, TimeOnly changedTime, double size, int changedUser, int owner, string name)
+        {
+            ChangedDate = changedDate;
+            ChangedTime = changedTime;
+            Size = size;
+            ChangedUser = changedUser;
+            Owner = owner;
+            Name = name;
+        }
     }
 }

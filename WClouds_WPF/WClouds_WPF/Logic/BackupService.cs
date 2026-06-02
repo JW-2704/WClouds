@@ -1,20 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace WClouds_WPF.Logic
 {
     public class BackupService
     {
-        public List<IStorable> GetBackupFolder(int BackupDirectoryID)
+        public async Task<List<SavedDirectory>?> GetBackupFolder(int BackupDirectoryID)
         {
-            throw new NotImplementedException();
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/backup/directory/{BackupDirectoryID}");
+            response.EnsureSuccessStatusCode();
+            string json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<List<SavedDirectory>>(json);
         }
-        public SavedFile GetBackupFile(int BackupFileID)
+
+        public async Task<SavedFile?> GetBackupFile(int BackupFileID)
         {
-            throw new NotImplementedException();
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/backup/file/{BackupFileID}");
+            response.EnsureSuccessStatusCode();
+            string json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedFile>(json);
         }
-    }
+    }       
 }

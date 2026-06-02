@@ -9,6 +9,6 @@
       Title="DataPage">
 
     <Grid>
-        
+        <TreeView x:Name="FileTree" Margin="10"/>
     </Grid>
 </Page>

@@ -11,7 +11,7 @@ namespace WClouds_WPF.Logic
     {
         public static string APIKey { get; set; }
         
-        private static string URL = "karans-server.duckdns.org:430";
+        private static string URL = "http://127.0.0.1:8000";
         public static HttpClient HttpClient { get; set; } = new HttpClient()
         {
             BaseAddress = new Uri(URL)
