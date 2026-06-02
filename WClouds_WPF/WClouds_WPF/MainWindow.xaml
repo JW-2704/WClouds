@@ -1,0 +1,16 @@
+﻿<Window x:Class="WClouds_WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WClouds_WPF"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <StackPanel x:Name="StackPage" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Button x:Name="Sign_In" Content="Anmelden" Height="80" Width="300" Margin="5" Background="LightGreen" FontSize="25" FontFamily="Papyrus" BorderBrush="DarkGreen" BorderThickness="3" Click="Sign_In_Click"></Button>
+            <Button x:Name="Registrate" Content="Registrieren" Height="80" Width="300" Margin="5" Background="LightBlue" FontFamily="Papyrus" FontSize="25" BorderBrush="DarkBlue" BorderThickness="3" Click="Registrate_Click"></Button>
+        </StackPanel>
+        <Frame Name="MainFrame" NavigationUIVisibility="Hidden"/>
+    </Grid>
+</Window>
