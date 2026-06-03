@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace WClouds_WPF.Logic
@@ -17,12 +18,12 @@ namespace WClouds_WPF.Logic
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
-
-        public async Task<string> Login(string email, string password)
+        public async Task<LoginResponse> Login(string email, string password)
         {
             HttpResponseMessage response = await Webservice.HttpClient.PostAsJsonAsync("/user/login", new { email, password });
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync();
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<LoginResponse>(body)!;
         }
     }
 }

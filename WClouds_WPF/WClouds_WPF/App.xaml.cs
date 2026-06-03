@@ -9,6 +9,7 @@ namespace WClouds_WPF
     /// </summary>
     public partial class App : Application
     {
+        public static int CurrentUserId { get; set; }
     }
 
 }

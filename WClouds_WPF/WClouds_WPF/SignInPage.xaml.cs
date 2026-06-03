@@ -29,33 +29,31 @@ namespace WClouds_WPF
 
         private async void SignInButton_Click(object sender, RoutedEventArgs e)
         {
-            DataPage dataPage = new DataPage();
             Authenticator authenticator = new Authenticator();
-
             string email = emailTextBox.Text;
-            string password = passwordTextBox.Text;
+            string password = passwordTextBox.Password;
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
             {
                 MessageBox.Show("Bitte alle Felder ausfüllen.");
                 return;
             }
-            else
-            {
-                try
-                {
-                    string response = await authenticator.Login(email, password);
 
-                    MessageBox.Show("Erfolgreicher Login");
-                    MessageBox.Show(response);
-                    SignPagePanel.Visibility = Visibility.Collapsed;
-                    MainFrame.Content = dataPage;
-                }
-                catch
-                {
-                    MessageBox.Show("Login fehlgeschlagen");
-                }
-            }   
+            try
+            {
+                LoginResponse result = await authenticator.Login(email, password);
+                App.CurrentUserId = result.user_id;
+                Webservice.HttpClient.DefaultRequestHeaders.Remove("X-API-Key");
+                Webservice.HttpClient.DefaultRequestHeaders.Add("X-API-Key", result.session_key);
+
+                DataPage dataPage = new DataPage();
+                MainFrame.Content = dataPage;
+                await dataPage.LoadFiles();
+            }
+            catch
+            {
+                MessageBox.Show("Login fehlgeschlagen");
+            }
         }
     }
 }

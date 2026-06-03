@@ -28,12 +28,14 @@ namespace WClouds_WPF
             InitializeComponent();
             LoadFiles();
         }
+        
 
-        private async void LoadFiles()
+
+        public async Task LoadFiles()
         {
             try
             {
-                SavedDirectory? root = await storageService.GetDirectory(1);
+                SavedDirectory? root = await storageService.GetDirectory(App.CurrentUserId);
                 if (root == null) return;
 
                 FileTree.Items.Clear();

@@ -12,64 +12,63 @@ namespace WClouds_WPF.Logic
 {
     public class StorageService
     {
-        public async Task<SavedFile?> GetFile(int FileID)
-        {
-            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/{FileID}");
-            response.EnsureSuccessStatusCode();
-            string file = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<SavedFile>(file);
 
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        public async Task<SavedFile?> GetFile(int fileId)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/{fileId}");
+            response.EnsureSuccessStatusCode();
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedFile>(body, JsonOptions);
         }
 
-
-        public async Task<SavedDirectory?> GetDirectory(int DirectoryID)
+        public async Task<SavedDirectory?> GetDirectory(int directoryId)
         {
-            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directorys/{DirectoryID}");
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/{directoryId}");
             response.EnsureSuccessStatusCode();
-            string directory = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<SavedDirectory>(directory);
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedDirectory>(body, JsonOptions);
         }
 
-
-        public async Task<SavedFile?> UploadFile(SavedFile cur_file)
+        public async Task<SavedFile?> UploadFile(SavedFile curFile)
         {
-            string json = JsonSerializer.Serialize(cur_file);
+            string json = JsonSerializer.Serialize(curFile);
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await Webservice.HttpClient.PostAsync("/files", content);
             response.EnsureSuccessStatusCode();
-            string file = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<SavedFile>(file);
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedFile>(body, JsonOptions);
         }
-
 
         public async Task<SavedDirectory?> UploadDirectory(string absolutePath)
         {
-            string json = JsonSerializer.Serialize(absolutePath);
+            string json = JsonSerializer.Serialize(new { path = absolutePath });
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await Webservice.HttpClient.PostAsync("/directorys", content);
+            HttpResponseMessage response = await Webservice.HttpClient.PostAsync("/directories", content);
             response.EnsureSuccessStatusCode();
-            string directory = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<SavedDirectory>(directory);
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedDirectory>(body, JsonOptions);
         }
 
-
-        public async Task<string?> GetDirectoryInfos(int DirectoryID)
+        public async Task<string?> GetDirectoryInfos(int directoryId)
         {
-            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"directorys/info/{DirectoryID}");
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/info/{directoryId}");
             response.EnsureSuccessStatusCode();
-            string directory = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<string>(directory);
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<string>(body, JsonOptions);
         }
 
-
-        public async Task<string?> GetFileInfos(int FileID)
+        public async Task<string?> GetFileInfos(int fileId)
         {
-            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/info/{FileID}");
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/info/{fileId}");
             response.EnsureSuccessStatusCode();
-            string file = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<string>(file);
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<string>(body, JsonOptions);
         }
     }
 }
