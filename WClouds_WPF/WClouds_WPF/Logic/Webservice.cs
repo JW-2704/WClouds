@@ -17,5 +17,14 @@ namespace WClouds_WPF.Logic
             BaseAddress = new Uri(URL)
         };
 
+        // KI | Prompt: Ich brauch wegen dem ApiKey noch das er nicht
+        // nach dem schließen der App immer neu generiert wird
+        public static void SetApiKey(string apiKey)
+        {
+            APIKey = apiKey;
+            HttpClient.DefaultRequestHeaders.Remove("X-API-Key");
+            HttpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+        }
+
     }
 }
