@@ -1,20 +1,46 @@
 ﻿// KI: Neue Datei – übernimmt die gesamte Ver- und Entschlüsselung (AES-256-GCM)
 using System;
+using System.IO;
 using System.Security.Cryptography;
 
 namespace WClouds_WPF.Logic
 {
     public static class EncryptionService
     {
-        // KI: Key wird einmalig pro App-Start generiert und im Speicher gehalten
-        // In einer echten App: Key sicher speichern (z.B. Windows Credential Store)
-        private static readonly byte[] Key = GenerateKey();
+        // KI | Prompt: Ich brauch wegen dem ApiKey noch das er nicht
+        // nach dem schließen der App immer neu generiert wird
+        private static readonly byte[] Key = LoadOrCreateKey();
 
-        private static byte[] GenerateKey()
+        private static byte[] LoadOrCreateKey()
         {
-            byte[] key = new byte[32]; // 256 bit
-            RandomNumberGenerator.Fill(key);
-            return key;
+            // Pfad zur gespeicherten Key-Datei im AppData Ordner des Users
+            string keyPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "WClouds", "key.dat"
+            );
+
+            // Ordner erstellen falls er noch nicht existiert
+            Directory.CreateDirectory(Path.GetDirectoryName(keyPath)!);
+
+            if (File.Exists(keyPath))
+            {
+                // Verschlüsselte Key-Datei einlesen
+                byte[] encrypted = File.ReadAllBytes(keyPath);
+                // Mit DPAPI entschlüsseln (nur der aktuelle Windows-User kann das)
+                return ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+            }
+            else
+            {
+                // Neuen zufälligen 256-bit Key generieren
+                byte[] key = new byte[32];
+                RandomNumberGenerator.Fill(key);
+                // Key mit DPAPI verschlüsseln bevor er gespeichert wird
+                byte[] encrypted = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
+                // Verschlüsselten Key in die Datei schreiben
+                File.WriteAllBytes(keyPath, encrypted);
+                // Unverschlüsselten Key zurückgeben damit er im Speicher verwendet werden kann
+                return key;
+            }
         }
 
         // KI: Datei verschlüsseln – gibt (verschlüsselte Bytes, nonce als Base64) zurück

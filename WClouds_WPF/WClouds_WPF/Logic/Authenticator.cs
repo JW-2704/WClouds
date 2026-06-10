@@ -23,7 +23,13 @@ namespace WClouds_WPF.Logic
             HttpResponseMessage response = await Webservice.HttpClient.PostAsJsonAsync("/user/login", new { email, password });
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<LoginResponse>(body)!;
+            LoginResponse loginResponse = JsonSerializer.Deserialize<LoginResponse>(body)!;
+
+            // KI | Prompt: Ich brauch wegen dem ApiKey noch das er nicht
+            // nach dem schließen der App immer neu generiert wird
+            Webservice.SetApiKey(loginResponse.session_key);
+
+            return loginResponse;
         }
     }
 }
