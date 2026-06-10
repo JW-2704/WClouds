@@ -27,8 +27,8 @@ namespace WClouds_WPF.Logic
             return JsonSerializer.Deserialize<SavedDirectory>(body);
         }
 
-        // KI: Upload verschlüsselt die Datei bevor sie zum Server geschickt wird
-        public async Task<SavedFile?> UploadFile(SavedFile curFile, int ownerId)
+        // KI Start | Prompt: Upload verschlüsselt die Datei bevor sie zum Server geschickt wird
+        public async Task<SavedFile?> UploadFile(SavedFile curFile, int ownerId, int? folderId = null)
         {
             if (curFile.Content == null)
                 throw new ArgumentException("File content is empty");
@@ -43,8 +43,14 @@ namespace WClouds_WPF.Logic
             fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
             form.Add(fileContent, "uploaded_file", curFile.FileName ?? "file");
 
-            form.Add(new StringContent(nonce), "nonce");               // KI
-            form.Add(new StringContent(ownerId.ToString()), "owner_id"); // KI
+            form.Add(new StringContent(nonce), "nonce");              
+            form.Add(new StringContent(ownerId.ToString()), "owner_id");
+            form.Add(new StringContent($"{curFile.FileName}{curFile.Extension}"), "original_name"); 
+
+            if (folderId.HasValue)
+                form.Add(new StringContent(folderId.Value.ToString()), "folder_id");
+            // KI Ende
+
 
             HttpResponseMessage response = await Webservice.HttpClient.PostAsync("/files/", form);
             response.EnsureSuccessStatusCode();
@@ -53,13 +59,13 @@ namespace WClouds_WPF.Logic
             return JsonSerializer.Deserialize<SavedFile>(body);
         }
 
-        // KI: Download holt verschlüsselte Datei + Nonce und entschlüsselt sie lokal
+        // KI Start | Prompt: Download holt verschlüsselte Datei + Nonce und entschlüsselt sie lokal
         public async Task<byte[]?> DownloadFile(int fileId)
         {
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/download/{fileId}");
             response.EnsureSuccessStatusCode();
 
-            // KI: Nonce aus dem Response-Header lesen
+            // Nonce aus dem Response-Header lesen
             string? nonce = null;
             if (response.Headers.TryGetValues("X-Nonce", out var values))
                 nonce = System.Linq.Enumerable.FirstOrDefault(values);
@@ -69,9 +75,10 @@ namespace WClouds_WPF.Logic
 
             byte[] encryptedData = await response.Content.ReadAsByteArrayAsync();
 
-            // KI: Lokal entschlüsseln – Server hat die Datei nie im Klartext gesehen
+            // Lokal entschlüsseln – Server hat die Datei nie im Klartext gesehen
             return EncryptionService.Decrypt(encryptedData, nonce);
         }
+        // KI Ende
 
         public async Task<SavedDirectory?> UploadDirectory(string absolutePath)
         {
@@ -98,6 +105,16 @@ namespace WClouds_WPF.Logic
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<string>(body);
+        }
+
+        // KI Start | Prompt: Ich brauch noch für jeden User von Anfang an ein Root
+        public async Task<SavedDirectory?> GetRootDirectory(int userId)
+        {
+            // Erst alle Files des Users holen um die Root-Folder-ID zu finden
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/root/{userId}");
+            response.EnsureSuccessStatusCode();
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<SavedDirectory>(body);
         }
     }
 }

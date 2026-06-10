@@ -33,9 +33,9 @@ namespace WClouds_WPF
 
         private async void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
-            string email    = EmailBox.Text;
+            string email = EmailBox.Text;
             string password = PasswordBox.Password;
-            string key      = storageKey;
+            string key = storageKey;
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(key))
             {
@@ -46,16 +46,12 @@ namespace WClouds_WPF
             try
             {
                 Authenticator authenticator = new Authenticator();
-
-                // Password is hashed inside Authenticator.Register – never sent as plaintext
                 await authenticator.Register(email, password, key);
-
-                // Navigate to sign-in after successful registration
                 MainFrame.Content = new SignInPage();
             }
             catch
             {
-                MessageBox.Show("Key ist falsch oder existiert nicht.");
+                MessageBox.Show("Key wurde bereits eingelöst oder existiert nicht.");
             }
         }
 
@@ -64,6 +60,14 @@ namespace WClouds_WPF
             PasswordPlaceholder.Visibility = string.IsNullOrEmpty(PasswordBox.Password)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        }
+
+        private void Back_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow main)
+            {
+                main.ShowStartPage();
+            }
         }
     }
 }
