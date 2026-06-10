@@ -1,25 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using WClouds_WPF.Logic;
 
 namespace WClouds_WPF
 {
-    /// <summary>
-    /// Interaction logic for SignInPage.xaml
-    /// </summary>
     public partial class SignInPage : Page
     {
         public SignInPage()
@@ -29,8 +14,7 @@ namespace WClouds_WPF
 
         private async void SignInButton_Click(object sender, RoutedEventArgs e)
         {
-            Authenticator authenticator = new Authenticator();
-            string email = emailTextBox.Text;
+            string email    = emailTextBox.Text;
             string password = passwordTextBox.Password;
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
@@ -41,10 +25,13 @@ namespace WClouds_WPF
 
             try
             {
+                Authenticator authenticator = new Authenticator();
+
+                // Password is hashed inside Authenticator.Login – never sent as plaintext.
+                // Authenticator.Login also calls Webservice.SetApiKey internally,
+                // so there is no need to set the header again here.
                 LoginResponse result = await authenticator.Login(email, password);
                 App.CurrentUserId = result.user_id;
-                Webservice.HttpClient.DefaultRequestHeaders.Remove("X-API-Key");
-                Webservice.HttpClient.DefaultRequestHeaders.Add("X-API-Key", result.session_key);
 
                 DataPage dataPage = new DataPage();
                 MainFrame.Content = dataPage;
@@ -52,10 +39,10 @@ namespace WClouds_WPF
             }
             catch
             {
-                MessageBox.Show("Login fehlgeschlagen");
+                MessageBox.Show("Login fehlgeschlagen.");
             }
-
         }
+
         private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
         {
             PasswordPlaceholder.Visibility = string.IsNullOrEmpty(passwordTextBox.Password)
