@@ -80,5 +80,12 @@ namespace WClouds_WPF
             }
 
         }
+        // AI
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            PasswordPlaceholder.Visibility = string.IsNullOrEmpty(PasswordBox.Password)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
     }
 }

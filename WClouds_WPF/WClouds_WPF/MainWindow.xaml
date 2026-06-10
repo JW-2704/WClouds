@@ -5,12 +5,111 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WClouds_WPF"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        <StackPanel x:Name="StackPage" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Button x:Name="Sign_In" Content="Anmelden" Height="80" Width="300" Margin="5" Background="LightGreen" FontSize="25" FontFamily="Papyrus" BorderBrush="DarkGreen" BorderThickness="3" Click="Sign_In_Click"></Button>
-            <Button x:Name="Registrate" Content="Registrieren" Height="80" Width="300" Margin="5" Background="LightBlue" FontFamily="Papyrus" FontSize="25" BorderBrush="DarkBlue" BorderThickness="3" Click="Registrate_Click"></Button>
+        Title="WClouds" Height="450" Width="800"
+        Background="#1E1E2E">
+    <!--Verschönere diese Datei in diesem ungefähren stil [Bild von sketches]-->
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgBrush"      Color="#1E1E2E"/>
+        <SolidColorBrush x:Key="PanelBrush"   Color="#2A2A3E"/>
+        <SolidColorBrush x:Key="AccentBrush"  Color="#7C6AF7"/>
+        <SolidColorBrush x:Key="TextPrimary"  Color="#E0E0F0"/>
+        <SolidColorBrush x:Key="TextMuted"    Color="#7A7A9A"/>
+
+        <Style x:Key="CloudButton" TargetType="Button">
+            <Setter Property="FontFamily"        Value="Segoe UI Semibold"/>
+            <Setter Property="FontSize"          Value="15"/>
+            <Setter Property="Foreground"        Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Background"        Value="{StaticResource PanelBrush}"/>
+            <Setter Property="BorderBrush"       Value="{StaticResource AccentBrush}"/>
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="Width"             Value="260"/>
+            <Setter Property="Height"            Value="52"/>
+            <Setter Property="Cursor"            Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#5A4ED4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource BgBrush}">
+
+        <!-- Header -->
+        <Border VerticalAlignment="Top" Height="50"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource AccentBrush}"
+                BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
+                <TextBlock Text="☁" Foreground="{StaticResource AccentBrush}" FontSize="20" VerticalAlignment="Center"/>
+                <TextBlock Text="WClouds" Foreground="{StaticResource TextPrimary}"
+                           FontFamily="Segoe UI Semibold" FontSize="18"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Center Card -->
+        <StackPanel x:Name="StackPage"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <Border Background="{StaticResource PanelBrush}"
+                    CornerRadius="14" Padding="40,36"
+                    BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="1">
+                <StackPanel>
+
+                    <!-- Logo + Titel -->
+                    <TextBlock Text="☁" Foreground="{StaticResource AccentBrush}"
+                               FontSize="42" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Willkommen" Foreground="{StaticResource TextPrimary}"
+                               FontFamily="Segoe UI Semibold" FontSize="22"
+                               HorizontalAlignment="Center" Margin="0,6,0,4"/>
+                    <TextBlock Text="Melde dich an oder erstelle ein neues Konto."
+                               Foreground="{StaticResource TextMuted}"
+                               FontFamily="Segoe UI" FontSize="12"
+                               HorizontalAlignment="Center" Margin="0,0,0,28"/>
+
+                    <!-- Anmelden -->
+                    <Button x:Name="Sign_In"
+                            Style="{StaticResource CloudButton}"
+                            Click="Sign_In_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔑" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Anmelden" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Registrieren -->
+                    <Button x:Name="Registrate"
+                            Style="{StaticResource CloudButton}"
+                            Margin="0,12,0,0"
+                            Click="Registrate_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✨" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Registrieren" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                </StackPanel>
+            </Border>
         </StackPanel>
+
         <Frame Name="MainFrame" NavigationUIVisibility="Hidden"/>
     </Grid>
 </Window>

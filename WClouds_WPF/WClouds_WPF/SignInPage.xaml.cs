@@ -54,6 +54,13 @@ namespace WClouds_WPF
             {
                 MessageBox.Show("Login fehlgeschlagen");
             }
+
+        }
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            PasswordPlaceholder.Visibility = string.IsNullOrEmpty(passwordTextBox.Password)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
     }
 }
