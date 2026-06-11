@@ -7,7 +7,7 @@ namespace WClouds_WPF.Logic
 {
     public static class EncryptionService
     {
-        // KI | Prompt: Ich brauch wegen dem ApiKey noch das er nicht
+        // KI Start | Prompt: Ich brauch wegen dem ApiKey noch das er nicht
         // nach dem schließen der App immer neu generiert wird
         private static readonly byte[] Key = LoadOrCreateKey();
 
@@ -42,8 +42,9 @@ namespace WClouds_WPF.Logic
                 return key;
             }
         }
+        // KI Ende 
 
-        // KI: Datei verschlüsseln – gibt (verschlüsselte Bytes, nonce als Base64) zurück
+        // KI Start | Prompt: Dateien verschlüsseln und entschlüsseln
         public static (byte[] EncryptedData, string NonceBase64) Encrypt(byte[] plainData)
         {
             byte[] nonce = new byte[12]; // 96 bit Nonce für AES-GCM
@@ -55,7 +56,7 @@ namespace WClouds_WPF.Logic
             using AesGcm aes = new AesGcm(Key, 16);
             aes.Encrypt(nonce, plainData, cipherText, tag);
 
-            // KI: Tag hinten anhängen damit wir beim Entschlüsseln alles haben
+            // Tag hinten anhängen damit wir beim Entschlüsseln alles haben
             byte[] encryptedWithTag = new byte[cipherText.Length + tag.Length];
             Buffer.BlockCopy(cipherText, 0, encryptedWithTag, 0, cipherText.Length);
             Buffer.BlockCopy(tag, 0, encryptedWithTag, cipherText.Length, tag.Length);
@@ -63,12 +64,12 @@ namespace WClouds_WPF.Logic
             return (encryptedWithTag, Convert.ToBase64String(nonce));
         }
 
-        // KI: Datei entschlüsseln – braucht verschlüsselte Bytes und den Nonce (Base64)
+        // Datei entschlüsseln – braucht verschlüsselte Bytes und den Nonce (Base64)
         public static byte[] Decrypt(byte[] encryptedData, string nonceBase64)
         {
             byte[] nonce = Convert.FromBase64String(nonceBase64);
 
-            // KI: Tag wieder vom Ende trennen
+            // Tag wieder vom Ende trennen
             byte[] tag = new byte[16];
             byte[] cipherText = new byte[encryptedData.Length - 16];
             Buffer.BlockCopy(encryptedData, 0, cipherText, 0, cipherText.Length);
@@ -81,5 +82,6 @@ namespace WClouds_WPF.Logic
 
             return plainData;
         }
+        // KI Ende
     }
 }

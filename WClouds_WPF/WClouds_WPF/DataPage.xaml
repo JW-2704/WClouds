@@ -208,6 +208,15 @@
                         <TextBlock Text="Herunterladen" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Button x:Name="LogoutBtn"
+        Style="{StaticResource ToolbarBtn}"
+        Click="Logout_Click"
+        Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⇦" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Abmelden" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
 
@@ -227,5 +236,6 @@
                            FontFamily="Segoe UI" FontSize="11"/>
             </StackPanel>
         </Border>
+        <Frame Name="MainFrame" NavigationUIVisibility="Hidden"/>
     </Grid>
 </Page>

@@ -24,18 +24,22 @@ namespace WClouds_WPF
             InitializeComponent();
         }
 
+        public void ShowStartPage()
+        {
+            MainFrame.Content = null;
+            StackPage.Visibility = Visibility.Visible;
+        }
+
         private void Sign_In_Click(object sender, RoutedEventArgs e)
         {
             StackPage.Visibility = Visibility.Collapsed;
-            SignInPage signInPage = new SignInPage();
-            MainFrame.Content = signInPage;
+            MainFrame.Content = new SignInPage();
         }
 
         private void Registrate_Click(object sender, RoutedEventArgs e)
         {
             StackPage.Visibility = Visibility.Collapsed;
-            RegistratePage registratePage = new RegistratePage();
-            MainFrame.Content = registratePage;
+            MainFrame.Content = new RegistratePage();
         }
     }
 }

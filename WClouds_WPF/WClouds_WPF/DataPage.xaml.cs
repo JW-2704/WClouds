@@ -15,11 +15,23 @@ namespace WClouds_WPF
         private readonly StorageService storageService = new StorageService();
 
         private int? selectedFileId = null;
+        private string? selectedFileName;
 
         public DataPage()
         {
             InitializeComponent();
             LoadFiles();
+        }
+
+        // KI Start | Prompt: Methode um folderid zu bekommen
+        private int? GetSelectedFolderId()
+        {
+            if (FileTree.SelectedItem is TreeViewItem item)
+            {
+                if (item.Tag is int folderId) return folderId;
+                if (item.Tag is (int, string)) return null;
+            }
+            return null;
         }
 
 
@@ -28,7 +40,7 @@ namespace WClouds_WPF
             SetStatus("Lade Dateien…");
             try
             {
-                SavedDirectory? root = await storageService.GetDirectory(App.CurrentUserId);
+                SavedDirectory? root = await storageService.GetRootDirectory(App.CurrentUserId);
                 if (root == null)
                 {
                     SetStatus("Keine Dateien gefunden.");
@@ -37,12 +49,11 @@ namespace WClouds_WPF
 
                 FileTree.Items.Clear();
                 FileTree.Items.Add(BuildTreeItem(root));
-                SetStatus("Bereit.");
             }
             catch
             {
-                SetStatus("⚠ Fehler beim Laden.");
-                MessageBox.Show("Dateien konnten nicht geladen werden.");
+                SetStatus("Keine Dateien gefunden.");
+                
             }
         }
 
@@ -65,10 +76,11 @@ namespace WClouds_WPF
 
             if (dialog.ShowDialog() != true) return;
 
-            string path      = dialog.FileName;
-            string fileName  = Path.GetFileNameWithoutExtension(path);
-            string extension = Path.GetExtension(path);   // e.g. ".png"
+            string path = dialog.FileName;
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            string extension = Path.GetExtension(path);
 
+            // KI Start| Prompt: Mach GUI schöner
             SetStatus($"Lade hoch: {fileName}{extension}…");
             UploadFileBtn.IsEnabled = false;
 
@@ -84,7 +96,7 @@ namespace WClouds_WPF
                 };
 
 
-                await storageService.UploadFile(file, App.CurrentUserId);
+                await storageService.UploadFile(file, App.CurrentUserId, GetSelectedFolderId());
 
                 SetStatus($"✔ {fileName}{extension} erfolgreich hochgeladen.");
                 await LoadFiles();
@@ -98,22 +110,27 @@ namespace WClouds_WPF
             {
                 UploadFileBtn.IsEnabled = true;
             }
+            // KI Ende
         }
 
-
+        
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
+
+
             if (selectedFileId == null) return;
 
 
             var dialog = new SaveFileDialog
             {
                 Title  = "Datei speichern unter…",
-                Filter = "Alle Dateien (*.*)|*.*"
+                Filter = "Alle Dateien (*.*)|*.*",
+                FileName = selectedFileName
             };
 
             if (dialog.ShowDialog() != true) return;
 
+            // KI Start | Prompt: Ich brauch die Implementierung vom Download Button
             SetStatus("Lade herunter…");
             DownloadBtn.IsEnabled = false;
 
@@ -124,38 +141,42 @@ namespace WClouds_WPF
 
                 if (decrypted == null)
                 {
-                    SetStatus("⚠ Download fehlgeschlagen.");
+                    SetStatus("Download fehlgeschlagen.");
                     return;
                 }
-
+                
                 await File.WriteAllBytesAsync(dialog.FileName, decrypted);
-                SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
+                SetStatus($"Datei gespeichert unter {dialog.FileName}");
             }
             catch (Exception ex)
             {
-                SetStatus("⚠ Download fehlgeschlagen.");
-                MessageBox.Show($"Fehler beim Herunterladen:\n{ex.Message}");
+                SetStatus("Download fehlgeschlagen.");
+                MessageBox.Show($"Fehler beim Herunterladen: {ex.Message}");
             }
             finally
             {
                 DownloadBtn.IsEnabled = selectedFileId != null;
             }
+            // KI Ende
         }
 
-
+        // KI Start | Prompt: Mach GUI schöner
         private void FileTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (e.NewValue is TreeViewItem item && item.Tag is int fileId)
+            if (e.NewValue is TreeViewItem item && item.Tag is (int fileId, string fileName))
             {
                 selectedFileId = fileId;
+                selectedFileName = fileName;
                 DownloadBtn.IsEnabled = true;
             }
             else
             {
                 selectedFileId = null;
+                selectedFileName = null;
                 DownloadBtn.IsEnabled = false;
             }
         }
+        // KI Ende
 
 
         private TreeViewItem BuildTreeItem(SavedDirectory directory)
@@ -163,8 +184,7 @@ namespace WClouds_WPF
             var folderItem = new TreeViewItem
             {
                 Header     = BuildHeader(GetFolderIcon(directory), directory.Name ?? "Root"),
-                IsExpanded = true
-
+                Tag = directory.ID
             };
 
             foreach (SavedDirectory subDir in directory.SubDirectories)
@@ -176,7 +196,7 @@ namespace WClouds_WPF
                 var fileItem = new TreeViewItem
                 {
                     Header = BuildHeader(GetFileIcon(file.Extension), fullName),
-                    Tag    = file.ID  
+                    Tag = (file.ID, fullName)
                 };
                 folderItem.Items.Add(fileItem);
             }
@@ -184,6 +204,7 @@ namespace WClouds_WPF
             return folderItem;
         }
 
+        // KI Start | Prompt: Mach GUI schöner
         private StackPanel BuildHeader(string icon, string label)
         {
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
@@ -206,7 +227,7 @@ namespace WClouds_WPF
         private static string GetFolderIcon(SavedDirectory dir) =>
             (dir.Name == null || dir.Name == "Root") ? "☁" : "📁";
 
-        private static string GetFileIcon(string? ext) => (ext ?? "").ToLower() switch
+        private static string GetFileIcon(string? ext) => ("." + (ext ?? "").ToLower().TrimStart('.')) switch
         {
             ".pdf"                                              => "📄",
             ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp"    => "🖼️",
@@ -225,5 +246,14 @@ namespace WClouds_WPF
 
         private void SetStatus(string message) =>
             StatusText.Text = message;
+        // KI Ende
+
+        private void Logout_Click(object sender, RoutedEventArgs e)
+        {
+            Webservice.SetApiKey(string.Empty);
+            App.CurrentUserId = 0;
+            NavigationService.Navigate(new SignInPage());
+        }
+        
     }
 }

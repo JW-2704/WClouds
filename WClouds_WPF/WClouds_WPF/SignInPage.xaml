@@ -109,14 +109,20 @@
 
         <!-- Header -->
         <Border VerticalAlignment="Top" Height="50"
-                Background="#2A2A3E"
-                BorderBrush="#7C6AF7" BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
-                <TextBlock Text="☁" Foreground="#7C6AF7" FontSize="20" VerticalAlignment="Center"/>
-                <TextBlock Text="Anmelden" Foreground="#E0E0F0"
-                           FontFamily="Segoe UI Semibold" FontSize="18"
-                           Margin="10,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
+        Background="#2A2A3E"
+        BorderBrush="#7C6AF7" BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="☁" Foreground="#7C6AF7" FontSize="20" VerticalAlignment="Center"/>
+                    <TextBlock Text="Anmelden" Foreground="#E0E0F0"
+                       FontFamily="Segoe UI Semibold" FontSize="18"
+                       Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Content="← Zurück" HorizontalAlignment="Right" VerticalAlignment="Center"
+                Click="Back_Click"
+                Background="Transparent" Foreground="#7A7A9A"
+                BorderThickness="0" Cursor="Hand" FontFamily="Segoe UI" FontSize="12"/>
+            </Grid>
         </Border>
 
         <!-- Card -->
