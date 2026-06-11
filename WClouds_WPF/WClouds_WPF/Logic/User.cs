@@ -34,5 +34,15 @@ namespace WClouds_WPF.Logic
             HttpResponseMessage response = await Webservice.HttpClient.PatchAsJsonAsync("/user/updateusedstorage", new { UserID, usedBytes });
             response.EnsureSuccessStatusCode();
         }
+        public async Task<int?> GetUserIdByEmail(string email)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/user/by-email/{Uri.EscapeDataString(email)}");
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+            response.EnsureSuccessStatusCode();
+            string body = await response.Content.ReadAsStringAsync();
+            User? user = JsonSerializer.Deserialize<User>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return user?.Id;
+        }
     }
 }

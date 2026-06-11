@@ -198,13 +198,13 @@
                     </StackPanel>
                 </Button>
 
-                <Button x:Name="InfoBtn"
+                <Button x:Name="ShareBtn"
         Style="{StaticResource ToolbarBtn}"
-        Click="InfoBtn_Click"
+        Click="ShareBtn_Click"
         Margin="8,0,0,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="ℹ" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Infos" VerticalAlignment="Center"/>
+                        <TextBlock Text="👥" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Share" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 

@@ -260,21 +260,9 @@ namespace WClouds_WPF
         // KI Ende
 
 
-        private async void InfoBtn_Click(object sender, RoutedEventArgs e)
+        private async void ShareBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (FileTree.SelectedItem is not TreeViewItem item) return;
 
-            Info? info = null;
-
-            if (item.Tag is (int fileId, string _))
-                info = await storageService.GetFileInfos(fileId);
-            else if (item.Tag is int folderId)
-                info = await storageService.GetDirectoryInfos(folderId);
-
-            if (info != null)
-                MessageBox.Show(
-                    $"Name: {info.Name}\nBesitzer: {info.Owner}\nGröße: {info.Size} MB",
-                    "Infos", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private async void UploadFolder_Click(object sender, RoutedEventArgs e)
