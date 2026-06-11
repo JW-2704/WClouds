@@ -40,11 +40,26 @@ namespace WClouds_WPF.Logic
                 PropertyNameCaseInsensitive = true
             });
         }
+        public async Task<List<SharedFile>?> GetSharedWithMe(int userId)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/share/shared-with-me/{userId}");
+            response.EnsureSuccessStatusCode();
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<List<SharedFile>>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
     }
 
     public class FileAccess
     {
         public int MemberId { get; set; }
+        public bool CanRead { get; set; }
+        public bool CanWrite { get; set; }
+    }
+    public class SharedFile
+    {
+        public int ID { get; set; }
+        public string? FileName { get; set; }
+        public string? Extension { get; set; }
         public bool CanRead { get; set; }
         public bool CanWrite { get; set; }
     }

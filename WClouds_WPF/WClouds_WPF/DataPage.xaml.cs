@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
@@ -9,10 +10,10 @@ using WClouds_WPF.Logic;
 
 namespace WClouds_WPF
 {
-    // Mit KI Design gemacht
     public partial class DataPage : Page
     {
         private readonly StorageService storageService = new StorageService();
+        private readonly ShareService shareService = new ShareService();
 
         private int? selectedFileId = null;
         private string? selectedFileName;
@@ -23,7 +24,6 @@ namespace WClouds_WPF
             LoadFiles();
         }
 
-        // KI Start | Prompt: Methode um folderid zu bekommen
         private int? GetSelectedFolderId()
         {
             if (FileTree.SelectedItem is TreeViewItem item)
@@ -34,27 +34,58 @@ namespace WClouds_WPF
             return null;
         }
 
-
         public async Task LoadFiles()
         {
             SetStatus("Lade Dateien…");
             try
             {
-                SavedDirectory? root = await storageService.GetRootDirectory(App.CurrentUserId);
-                if (root == null)
-                {
-                    SetStatus("Keine Dateien gefunden.");
-                    return;
-                }
-
                 FileTree.Items.Clear();
-                FileTree.Items.Add(BuildTreeItem(root));
+
+                // ── Own files ──────────────────────────────────────────────
+                SavedDirectory? root = await storageService.GetRootDirectory(App.CurrentUserId);
+                if (root != null)
+                    FileTree.Items.Add(BuildTreeItem(root));
+
+                // ── Shared with me ─────────────────────────────────────────
+                List<SharedFile>? sharedFiles = await shareService.GetSharedWithMe(App.CurrentUserId);
+                if (sharedFiles != null && sharedFiles.Count > 0)
+                    FileTree.Items.Add(BuildSharedTreeItem(sharedFiles));
+
+                if (FileTree.Items.Count == 0)
+                    SetStatus("Keine Dateien gefunden.");
+                else
+                    SetStatus("Bereit.");
             }
             catch
             {
                 SetStatus("Keine Dateien gefunden.");
-                
             }
+        }
+
+        // Builds the "Geteilt mit mir" virtual folder
+        private TreeViewItem BuildSharedTreeItem(List<SharedFile> sharedFiles)
+        {
+            var sharedFolder = new TreeViewItem
+            {
+                Header = BuildHeader("🤝", "Geteilt mit mir"),
+                Tag = -1   // sentinel: not a real folder ID
+            };
+
+            foreach (SharedFile file in sharedFiles)
+            {
+                string fullName = $"{file.FileName}{file.Extension}";
+                string icon = GetFileIcon(file.Extension);
+                string label = fullName + (file.CanWrite ? "" : " 🔒");
+
+                var fileItem = new TreeViewItem
+                {
+                    Header = BuildHeader(icon, label),
+                    Tag = (file.ID, fullName)
+                };
+                sharedFolder.Items.Add(fileItem);
+            }
+
+            return sharedFolder;
         }
 
         private async void Refresh_Click(object sender, RoutedEventArgs e)
@@ -64,7 +95,6 @@ namespace WClouds_WPF
             await LoadFiles();
         }
 
-
         private async void UploadFile_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
@@ -73,31 +103,20 @@ namespace WClouds_WPF
                 Filter = "Alle Dateien (*.*)|*.*",
                 Multiselect = false
             };
-
             if (dialog.ShowDialog() != true) return;
 
             string path = dialog.FileName;
             string fileName = Path.GetFileNameWithoutExtension(path);
             string extension = Path.GetExtension(path);
 
-            // KI Start| Prompt: Mach GUI schöner
             SetStatus($"Lade hoch: {fileName}{extension}…");
             UploadFileBtn.IsEnabled = false;
 
             try
             {
                 byte[] rawBytes = await File.ReadAllBytesAsync(path);
-
-                var file = new SavedFile
-                {
-                    FileName  = fileName,
-                    Extension = extension,
-                    Content   = rawBytes
-                };
-
-
+                var file = new SavedFile { FileName = fileName, Extension = extension, Content = rawBytes };
                 await storageService.UploadFile(file, App.CurrentUserId, GetSelectedFolderId());
-
                 SetStatus($"✔ {fileName}{extension} erfolgreich hochgeladen.");
                 await LoadFiles();
             }
@@ -106,22 +125,15 @@ namespace WClouds_WPF
                 SetStatus("⚠ Upload fehlgeschlagen.");
                 MessageBox.Show($"Fehler beim Hochladen:\n{ex.Message}");
             }
-            finally
-            {
-                UploadFileBtn.IsEnabled = true;
-            }
-            // KI Ende
+            finally { UploadFileBtn.IsEnabled = true; }
         }
 
-
-        // KI Start | Prompt: Ich brauch die Implementierung vom Download Button für Folder und Files
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
             if (FileTree.SelectedItem is not TreeViewItem item) return;
 
             if (item.Tag is (int fileId, string fileName))
             {
-                // File download – bestehender Code
                 var dialog = new SaveFileDialog
                 {
                     Title = "Datei speichern unter…",
@@ -141,13 +153,9 @@ namespace WClouds_WPF
                 catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
                 finally { DownloadBtn.IsEnabled = true; }
             }
-            else if (item.Tag is int folderId)
+            else if (item.Tag is int folderId && folderId != -1)
             {
-                // Ordner download
-                var dialog = new Microsoft.Win32.OpenFolderDialog
-                {
-                    Title = "Zielordner auswählen"
-                };
+                var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Zielordner auswählen" };
                 if (dialog.ShowDialog() != true) return;
                 SetStatus("Lade Ordner herunter…");
                 DownloadBtn.IsEnabled = false;
@@ -160,9 +168,7 @@ namespace WClouds_WPF
                 finally { DownloadBtn.IsEnabled = true; }
             }
         }
-        // KI Ende
 
-        // KI Start | Prompt: Mach GUI schöner
         private void FileTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (e.NewValue is TreeViewItem item)
@@ -172,29 +178,40 @@ namespace WClouds_WPF
                     selectedFileId = fileId;
                     selectedFileName = fileName;
                     DownloadBtn.IsEnabled = true;
+                    // Only allow sharing own files (not files shared with you)
+                    ShareBtn.IsEnabled = IsOwnFile(fileId);
                 }
-                else if (item.Tag is int)  // Ordner ausgewählt
+                else if (item.Tag is int folderId && folderId != -1)
                 {
                     selectedFileId = null;
                     selectedFileName = null;
-                    DownloadBtn.IsEnabled = true;  // ← auch bei Ordner aktivieren
+                    DownloadBtn.IsEnabled = true;
+                    ShareBtn.IsEnabled = false;
                 }
                 else
                 {
                     selectedFileId = null;
                     selectedFileName = null;
                     DownloadBtn.IsEnabled = false;
+                    ShareBtn.IsEnabled = false;
                 }
             }
         }
-        // KI Ende
 
+        // Checks if the selected file belongs to the current user (not in the shared folder)
+        private bool IsOwnFile(int fileId)
+        {
+            if (FileTree.SelectedItem is not TreeViewItem selected) return false;
+            // Walk up to find if this item lives under the "Geteilt mit mir" folder (Tag == -1)
+            var parent = selected.Parent as TreeViewItem;
+            return parent?.Tag is not -1 || parent?.Tag is null;
+        }
 
         private TreeViewItem BuildTreeItem(SavedDirectory directory)
         {
             var folderItem = new TreeViewItem
             {
-                Header     = BuildHeader(GetFolderIcon(directory), directory.Name ?? "Root"),
+                Header = BuildHeader(GetFolderIcon(directory), directory.Name ?? "Root"),
                 Tag = directory.ID
             };
 
@@ -215,22 +232,21 @@ namespace WClouds_WPF
             return folderItem;
         }
 
-        // KI Start | Prompt: Mach GUI schöner
         private StackPanel BuildHeader(string icon, string label)
         {
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
             sp.Children.Add(new TextBlock
             {
-                Text              = icon,
-                FontSize          = 14,
-                Margin            = new Thickness(0, 0, 6, 0),
+                Text = icon,
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 6, 0),
                 VerticalAlignment = VerticalAlignment.Center
             });
             sp.Children.Add(new TextBlock
             {
-                Text              = label,
+                Text = label,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground        = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0F0"))
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0E0F0"))
             });
             return sp;
         }
@@ -240,42 +256,45 @@ namespace WClouds_WPF
 
         private static string GetFileIcon(string? ext) => ("." + (ext ?? "").ToLower().TrimStart('.')) switch
         {
-            ".pdf"                                              => "📄",
-            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp"    => "🖼️",
-            ".mp3" or ".wav" or ".flac"                         => "🎵",
-            ".mp4" or ".mov" or ".avi"                          => "🎬",
-            ".zip" or ".rar" or ".7z"                           => "🗜️",
-            ".exe" or ".msi"                                    => "⚙️",
-            ".txt"                                              => "📝",
-            ".cs" or ".py" or ".js" or ".ts" or ".cpp"         => "💻",
-            ".xls" or ".xlsx"                                   => "📊",
-            ".doc" or ".docx"                                   => "📃",
-            _                                                   => "📎"
+            ".pdf" => "📄",
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => "🖼️",
+            ".mp3" or ".wav" or ".flac" => "🎵",
+            ".mp4" or ".mov" or ".avi" => "🎬",
+            ".zip" or ".rar" or ".7z" => "🗜️",
+            ".exe" or ".msi" => "⚙️",
+            ".txt" => "📝",
+            ".cs" or ".py" or ".js" or ".ts" or ".cpp" => "💻",
+            ".xls" or ".xlsx" => "📊",
+            ".doc" or ".docx" => "📃",
+            _ => "📎"
         };
 
+        private void SetStatus(string message) => StatusText.Text = message;
 
-
-        private void SetStatus(string message) =>
-            StatusText.Text = message;
-        // KI Ende
-
-
-        private async void ShareBtn_Click(object sender, RoutedEventArgs e)
+        private void ShareBtn_Click(object sender, RoutedEventArgs e)
         {
+            if (selectedFileId == null)
+            {
+                SetStatus("⚠ Bitte zuerst eine Datei auswählen.");
+                return;
+            }
 
+            var dialog = new ShareDialog(selectedFileId.Value)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (dialog.ShowDialog() == true)
+                SetStatus($"✔ \"{selectedFileName}\" erfolgreich geteilt.");
         }
 
         private async void UploadFolder_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new Microsoft.Win32.OpenFolderDialog
-            {
-                Title = "Ordner zum Hochladen auswählen"
-            };
-
+            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Ordner zum Hochladen auswählen" };
             if (dialog.ShowDialog() != true) return;
 
             int? parentFolderId = GetSelectedFolderId();
-            SetStatus($"Lade Ordner hoch…");
+            SetStatus("Lade Ordner hoch…");
             UploadFileBtn.IsEnabled = false;
 
             try
@@ -289,13 +308,8 @@ namespace WClouds_WPF
                 SetStatus("⚠ Upload fehlgeschlagen.");
                 MessageBox.Show($"Fehler:\n{ex.Message}");
             }
-            finally
-            {
-                UploadFileBtn.IsEnabled = true;
-            }
+            finally { UploadFileBtn.IsEnabled = true; }
         }
-
-
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
@@ -303,6 +317,5 @@ namespace WClouds_WPF
             App.CurrentUserId = 0;
             NavigationService.Navigate(new SignInPage());
         }
-        
     }
 }
