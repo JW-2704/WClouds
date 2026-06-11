@@ -188,11 +188,30 @@
                         <TextBlock Text="Datei hochladen" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Button x:Name="UploadFolderBtn"
+        Style="{StaticResource UploadBtn}"
+        Click="UploadFolder_Click"
+        Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📁" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Ordner hochladen" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="InfoBtn"
+        Style="{StaticResource ToolbarBtn}"
+        Click="InfoBtn_Click"
+        Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="ℹ" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Infos" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
 
                 <Button x:Name="RefreshBtn"
                         Style="{StaticResource ToolbarBtn}"
                         Click="Refresh_Click"
-                        Margin="0,0,8,0">
+                        Margin="8,0,8,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="↻" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                         <TextBlock Text="Aktualisieren" VerticalAlignment="Center"/>

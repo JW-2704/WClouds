@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -80,31 +81,105 @@ namespace WClouds_WPF.Logic
         }
         // KI Ende
 
-        public async Task<SavedDirectory?> UploadDirectory(string absolutePath)
+        public async Task DownloadDirectory(int folderId, string savePath)
         {
-            string json = JsonSerializer.Serialize(new { path = absolutePath });
-            StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await Webservice.HttpClient.PostAsync("/directories", content);
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/download/{folderId}");
             response.EnsureSuccessStatusCode();
-            string body = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<SavedDirectory>(body);
+
+            string folderName = folderId.ToString();
+            if (response.Headers.TryGetValues("X-Folder-Name", out var vals))
+                folderName = vals.First();
+
+            byte[] zipBytes = await response.Content.ReadAsByteArrayAsync();
+            using var zipStream = new System.IO.MemoryStream(zipBytes);
+            using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Read);
+
+            string outputDir = System.IO.Path.Combine(savePath, folderName);
+            Directory.CreateDirectory(outputDir);
+
+            // Erst alle Nonces einlesen
+            var nonces = new Dictionary<string, string>();
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.EndsWith(".nonce"))
+                {
+                    using var s = entry.Open();
+                    using var r = new System.IO.StreamReader(s);
+                    string dataFileName = entry.FullName[..^6];
+                    nonces[dataFileName] = await r.ReadToEndAsync();
+                }
+            }
+
+            // Dann Files entschlüsseln
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.EndsWith(".nonce")) continue;
+                if (!nonces.TryGetValue(entry.FullName, out string? nonce)) continue;
+
+                using var entryStream = entry.Open();
+                using var ms = new System.IO.MemoryStream();
+                await entryStream.CopyToAsync(ms);
+                byte[] encrypted = ms.ToArray();
+
+                System.Diagnostics.Debug.WriteLine($"File: {entry.FullName}");
+                System.Diagnostics.Debug.WriteLine($"Nonce from dict: {nonce}");
+                System.Diagnostics.Debug.WriteLine($"Encrypted length: {encrypted.Length}");
+
+                byte[] decrypted = EncryptionService.Decrypt(encrypted, nonce);
+
+                string fullPath = System.IO.Path.Combine(outputDir, entry.FullName);
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(fullPath)!);
+                await File.WriteAllBytesAsync(fullPath, decrypted);
+            }
         }
 
-        public async Task<string?> GetDirectoryInfos(int directoryId)
+        // KI Start | Prompt: UploadDirectory soll die ganze Ordnerstruktur mitnehmen
+        public async Task UploadDirectory(string absolutePath, int ownerId, int? parentFolderId = null)
+        {
+            string folderName = Path.GetFileName(absolutePath);
+
+            // Ordner im Backend anlegen
+            var body = new { name = folderName, owner_id = ownerId, parent_id = parentFolderId };
+            HttpResponseMessage response = await Webservice.HttpClient.PostAsJsonAsync("/directories/", body);
+            response.EnsureSuccessStatusCode();
+
+            string json = await response.Content.ReadAsStringAsync();
+            SavedDirectory? created = JsonSerializer.Deserialize<SavedDirectory>(json);
+            if (created == null) return;
+
+            // Alle Files in diesem Ordner hochladen
+            foreach (string filePath in Directory.GetFiles(absolutePath))
+            {
+                byte[] rawBytes = await File.ReadAllBytesAsync(filePath);
+                var file = new SavedFile
+                {
+                    FileName = Path.GetFileNameWithoutExtension(filePath),
+                    Extension = Path.GetExtension(filePath),
+                    Content = rawBytes
+                };
+                await UploadFile(file, ownerId, created.ID);
+            }
+
+            // Rekursiv alle Unterordner
+            foreach (string subDir in Directory.GetDirectories(absolutePath))
+                await UploadDirectory(subDir, ownerId, created.ID);
+        }
+        // KI Ende
+
+        public async Task<Info?> GetDirectoryInfos(int directoryId)
         {
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/info/{directoryId}");
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<string>(body);
+            return JsonSerializer.Deserialize<Info>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
-        public async Task<string?> GetFileInfos(int fileId)
+        public async Task<Info?> GetFileInfos(int fileId)
         {
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/info/{fileId}");
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<string>(body);
+            return JsonSerializer.Deserialize<Info>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
         // KI Start | Prompt: Ich brauch noch für jeden User von Anfang an ein Root

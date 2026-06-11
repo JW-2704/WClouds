@@ -113,67 +113,78 @@ namespace WClouds_WPF
             // KI Ende
         }
 
-        
+
+        // KI Start | Prompt: Ich brauch die Implementierung vom Download Button für Folder und Files
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
+            if (FileTree.SelectedItem is not TreeViewItem item) return;
 
-
-            if (selectedFileId == null) return;
-
-
-            var dialog = new SaveFileDialog
+            if (item.Tag is (int fileId, string fileName))
             {
-                Title  = "Datei speichern unter…",
-                Filter = "Alle Dateien (*.*)|*.*",
-                FileName = selectedFileName
-            };
-
-            if (dialog.ShowDialog() != true) return;
-
-            // KI Start | Prompt: Ich brauch die Implementierung vom Download Button
-            SetStatus("Lade herunter…");
-            DownloadBtn.IsEnabled = false;
-
-            try
-            {
-
-                byte[]? decrypted = await storageService.DownloadFile(selectedFileId.Value);
-
-                if (decrypted == null)
+                // File download – bestehender Code
+                var dialog = new SaveFileDialog
                 {
-                    SetStatus("Download fehlgeschlagen.");
-                    return;
+                    Title = "Datei speichern unter…",
+                    Filter = "Alle Dateien (*.*)|*.*",
+                    FileName = fileName
+                };
+                if (dialog.ShowDialog() != true) return;
+                SetStatus("Lade herunter…");
+                DownloadBtn.IsEnabled = false;
+                try
+                {
+                    byte[]? decrypted = await storageService.DownloadFile(fileId);
+                    if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
+                    await File.WriteAllBytesAsync(dialog.FileName, decrypted);
+                    SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
                 }
-                
-                await File.WriteAllBytesAsync(dialog.FileName, decrypted);
-                SetStatus($"Datei gespeichert unter {dialog.FileName}");
+                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                finally { DownloadBtn.IsEnabled = true; }
             }
-            catch (Exception ex)
+            else if (item.Tag is int folderId)
             {
-                SetStatus("Download fehlgeschlagen.");
-                MessageBox.Show($"Fehler beim Herunterladen: {ex.Message}");
+                // Ordner download
+                var dialog = new Microsoft.Win32.OpenFolderDialog
+                {
+                    Title = "Zielordner auswählen"
+                };
+                if (dialog.ShowDialog() != true) return;
+                SetStatus("Lade Ordner herunter…");
+                DownloadBtn.IsEnabled = false;
+                try
+                {
+                    await storageService.DownloadDirectory(folderId, dialog.FolderName);
+                    SetStatus("✔ Ordner gespeichert.");
+                }
+                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                finally { DownloadBtn.IsEnabled = true; }
             }
-            finally
-            {
-                DownloadBtn.IsEnabled = selectedFileId != null;
-            }
-            // KI Ende
         }
+        // KI Ende
 
         // KI Start | Prompt: Mach GUI schöner
         private void FileTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (e.NewValue is TreeViewItem item && item.Tag is (int fileId, string fileName))
+            if (e.NewValue is TreeViewItem item)
             {
-                selectedFileId = fileId;
-                selectedFileName = fileName;
-                DownloadBtn.IsEnabled = true;
-            }
-            else
-            {
-                selectedFileId = null;
-                selectedFileName = null;
-                DownloadBtn.IsEnabled = false;
+                if (item.Tag is (int fileId, string fileName))
+                {
+                    selectedFileId = fileId;
+                    selectedFileName = fileName;
+                    DownloadBtn.IsEnabled = true;
+                }
+                else if (item.Tag is int)  // Ordner ausgewählt
+                {
+                    selectedFileId = null;
+                    selectedFileName = null;
+                    DownloadBtn.IsEnabled = true;  // ← auch bei Ordner aktivieren
+                }
+                else
+                {
+                    selectedFileId = null;
+                    selectedFileName = null;
+                    DownloadBtn.IsEnabled = false;
+                }
             }
         }
         // KI Ende
@@ -247,6 +258,56 @@ namespace WClouds_WPF
         private void SetStatus(string message) =>
             StatusText.Text = message;
         // KI Ende
+
+
+        private async void InfoBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileTree.SelectedItem is not TreeViewItem item) return;
+
+            Info? info = null;
+
+            if (item.Tag is (int fileId, string _))
+                info = await storageService.GetFileInfos(fileId);
+            else if (item.Tag is int folderId)
+                info = await storageService.GetDirectoryInfos(folderId);
+
+            if (info != null)
+                MessageBox.Show(
+                    $"Name: {info.Name}\nBesitzer: {info.Owner}\nGröße: {info.Size} MB",
+                    "Infos", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private async void UploadFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Ordner zum Hochladen auswählen"
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            int? parentFolderId = GetSelectedFolderId();
+            SetStatus($"Lade Ordner hoch…");
+            UploadFileBtn.IsEnabled = false;
+
+            try
+            {
+                await storageService.UploadDirectory(dialog.FolderName, App.CurrentUserId, parentFolderId);
+                SetStatus("✔ Ordner erfolgreich hochgeladen.");
+                await LoadFiles();
+            }
+            catch (Exception ex)
+            {
+                SetStatus("⚠ Upload fehlgeschlagen.");
+                MessageBox.Show($"Fehler:\n{ex.Message}");
+            }
+            finally
+            {
+                UploadFileBtn.IsEnabled = true;
+            }
+        }
+
+
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {

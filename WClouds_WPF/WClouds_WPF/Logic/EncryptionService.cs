@@ -45,7 +45,7 @@ namespace WClouds_WPF.Logic
         // KI Ende 
 
         // KI Start | Prompt: Dateien verschlüsseln und entschlüsseln
-        public static (byte[] EncryptedData, string NonceBase64) Encrypt(byte[] plainData)
+        public static (byte[] EncryptedData, string NonceHex) Encrypt(byte[] plainData)
         {
             byte[] nonce = new byte[12]; // 96 bit Nonce für AES-GCM
             RandomNumberGenerator.Fill(nonce);
@@ -61,13 +61,15 @@ namespace WClouds_WPF.Logic
             Buffer.BlockCopy(cipherText, 0, encryptedWithTag, 0, cipherText.Length);
             Buffer.BlockCopy(tag, 0, encryptedWithTag, cipherText.Length, tag.Length);
 
-            return (encryptedWithTag, Convert.ToBase64String(nonce));
+            return (encryptedWithTag, Convert.ToHexString(nonce));
         }
 
+        
+
         // Datei entschlüsseln – braucht verschlüsselte Bytes und den Nonce (Base64)
-        public static byte[] Decrypt(byte[] encryptedData, string nonceBase64)
+        public static byte[] Decrypt(byte[] encryptedData, string nonceHex)
         {
-            byte[] nonce = Convert.FromBase64String(nonceBase64);
+            byte[] nonce = Convert.FromHexString(nonceHex);
 
             // Tag wieder vom Ende trennen
             byte[] tag = new byte[16];
