@@ -21,7 +21,6 @@ namespace WClouds_WPF
         public DataPage()
         {
             InitializeComponent();
-            LoadFiles();
         }
 
         private int? GetSelectedFolderId()
@@ -30,6 +29,7 @@ namespace WClouds_WPF
             {
                 if (item.Tag is int folderId) return folderId;
                 if (item.Tag is (int, string)) return null;
+                if (item.Tag is (int, string, bool, bool)) return null;
             }
             return null;
         }
@@ -65,6 +65,7 @@ namespace WClouds_WPF
         // Builds the "Geteilt mit mir" virtual folder
         private TreeViewItem BuildSharedTreeItem(List<SharedFile> sharedFiles)
         {
+
             var sharedFolder = new TreeViewItem
             {
                 Header = BuildHeader("🤝", "Geteilt mit mir"),
@@ -80,7 +81,7 @@ namespace WClouds_WPF
                 var fileItem = new TreeViewItem
                 {
                     Header = BuildHeader(icon, label),
-                    Tag = (file.ID, fullName)
+                    Tag = (file.ID, fullName, file.CanRead, file.CanWrite)
                 };
                 sharedFolder.Items.Add(fileItem);
             }
@@ -132,7 +133,35 @@ namespace WClouds_WPF
         {
             if (FileTree.SelectedItem is not TreeViewItem item) return;
 
-            if (item.Tag is (int fileId, string fileName))
+            if (item.Tag is (int sharedFileId, string sharedFileName, bool canRead, bool _))
+            {
+                if (!canRead)
+                {
+                    SetStatus("⚠ Kein Lesezugriff auf diese Datei.");
+                    return;
+                }
+
+                var dialog = new SaveFileDialog
+                {
+                    Title = "Datei speichern unter…",
+                    Filter = "Alle Dateien (*.*)|*.*",
+                    FileName = sharedFileName
+                };
+                if (dialog.ShowDialog() != true) return;
+                SetStatus("Lade herunter…");
+                DownloadBtn.IsEnabled = false;
+                try
+                {
+                    byte[]? decrypted = await storageService.DownloadFile(sharedFileId);
+                    if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
+                    await File.WriteAllBytesAsync(dialog.FileName, decrypted);
+                    SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
+                }
+                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                finally { DownloadBtn.IsEnabled = true; }
+            }
+
+            else if (item.Tag is (int fileId, string fileName))
             {
                 var dialog = new SaveFileDialog
                 {
@@ -173,7 +202,15 @@ namespace WClouds_WPF
         {
             if (e.NewValue is TreeViewItem item)
             {
-                if (item.Tag is (int fileId, string fileName))
+                if (item.Tag is (int sharedFileId, string sharedFileName, bool canRead, bool canWrite))
+                {
+                    selectedFileId = sharedFileId;
+                    selectedFileName = sharedFileName;
+                    DownloadBtn.IsEnabled = canRead;   // nur wenn Lesezugriff
+                    ShareBtn.IsEnabled = false;         // geteilte Dateien nicht weitersharen
+                }
+
+                else if (item.Tag is (int fileId, string fileName))
                 {
                     selectedFileId = fileId;
                     selectedFileName = fileName;

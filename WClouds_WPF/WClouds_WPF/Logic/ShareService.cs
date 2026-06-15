@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace WClouds_WPF.Logic
@@ -40,27 +41,46 @@ namespace WClouds_WPF.Logic
                 PropertyNameCaseInsensitive = true
             });
         }
-        public async Task<List<SharedFile>?> GetSharedWithMe(int userId)
+        public async Task<List<SharedFile>?> GetSharedWithMe(int UserID)
         {
-            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/share/shared-with-me/{userId}");
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/share/shared-with-me/{UserID}");
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<List<SharedFile>>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return JsonSerializer.Deserialize<List<SharedFile>>(body, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
         }
     }
 
+
+    // KI Start | Prompt: Wieso klapp
     public class FileAccess
     {
+        [JsonPropertyName("member_id")]
         public int MemberId { get; set; }
+
+        [JsonPropertyName("can_read")]
         public bool CanRead { get; set; }
+
+        [JsonPropertyName("can_write")]
         public bool CanWrite { get; set; }
     }
     public class SharedFile
     {
+        [JsonPropertyName("ID")]
         public int ID { get; set; }
-        public string? FileName { get; set; }
-        public string? Extension { get; set; }
+
+        [JsonPropertyName("FileName")]
+        public string FileName { get; set; } = "";
+
+        [JsonPropertyName("Extension")]
+        public string Extension { get; set; } = "";
+
+        [JsonPropertyName("CanRead")]
         public bool CanRead { get; set; }
+
+        [JsonPropertyName("CanWrite")]
         public bool CanWrite { get; set; }
     }
 }
