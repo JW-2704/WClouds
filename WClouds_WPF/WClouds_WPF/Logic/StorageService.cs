@@ -81,6 +81,8 @@ namespace WClouds_WPF.Logic
         }
         // KI Ende
 
+
+        // KI Start | Prompt: DownloadDirectory soll die ganze Ordnerstruktur mitnehmen
         public async Task DownloadDirectory(int folderId, string savePath)
         {
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/directories/download/{folderId}");
@@ -132,6 +134,7 @@ namespace WClouds_WPF.Logic
                 await File.WriteAllBytesAsync(fullPath, decrypted);
             }
         }
+        // KI Ende
 
         // KI Start | Prompt: UploadDirectory soll die ganze Ordnerstruktur mitnehmen
         public async Task UploadDirectory(string absolutePath, int ownerId, int? parentFolderId = null)

@@ -31,7 +31,6 @@ namespace WClouds_WPF
 
             try
             {
-                // Look up the user by email to get their ID
                 int? memberId = await _userService.GetUserIdByEmail(email);
 
                 if (memberId == null)

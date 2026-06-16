@@ -9,6 +9,7 @@ namespace WClouds_WPF.Logic
 {
     public class Authenticator
     {
+        // KI Start | Prompt: Es soll alles richtig gehashed werden beim registrieren und einloggen, damit es sicher ist
         private static string HashPassword(string password)
         {
             byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
@@ -20,21 +21,14 @@ namespace WClouds_WPF.Logic
         {
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(rawKey));
         }
+        // KI Ende
 
         public async Task<string> Register(string email, string password, string storage_key)
         {
             string hashedPassword = HashPassword(password);
-            string encodedKey     = EncodeKey(storage_key);
+            string encodedKey = EncodeKey(storage_key);
 
-            var response = await Webservice.HttpClient.PostAsJsonAsync(
-                "/user/register",
-                new
-                {
-                    email,
-                    password          = hashedPassword,
-                    storage_plan_key  = encodedKey
-                }
-            );
+            var response = await Webservice.HttpClient.PostAsJsonAsync("/user/register",new{email, password = hashedPassword, storage_plan_key = encodedKey});
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
@@ -43,14 +37,7 @@ namespace WClouds_WPF.Logic
         {
             string hashedPassword = HashPassword(password);
 
-            var response = await Webservice.HttpClient.PostAsJsonAsync(
-                "/user/login",
-                new
-                {
-                    email,
-                    password = hashedPassword
-                }
-            );
+            var response = await Webservice.HttpClient.PostAsJsonAsync("/user/login", new { email, password = hashedPassword });
             response.EnsureSuccessStatusCode();
 
             string body = await response.Content.ReadAsStringAsync();

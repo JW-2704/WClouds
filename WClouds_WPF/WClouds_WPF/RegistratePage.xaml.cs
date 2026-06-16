@@ -20,7 +20,7 @@ namespace WClouds_WPF
         {
             var dialog = new OpenFileDialog
             {
-                Title  = "Storage Plan Key Datei auswählen",
+                Title = "Storage Plan Key Datei auswählen",
                 Filter = "Textdateien (*.txt)|*.txt|Alle Dateien (*.*)|*.*"
             };
 

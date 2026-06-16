@@ -40,13 +40,10 @@ namespace WClouds_WPF
             try
             {
                 FileTree.Items.Clear();
-
-                // ── Own files ──────────────────────────────────────────────
                 SavedDirectory? root = await storageService.GetRootDirectory(App.CurrentUserId);
                 if (root != null)
                     FileTree.Items.Add(BuildTreeItem(root));
 
-                // ── Shared with me ─────────────────────────────────────────
                 List<SharedFile>? sharedFiles = await shareService.GetSharedWithMe(App.CurrentUserId);
                 if (sharedFiles != null && sharedFiles.Count > 0)
                     FileTree.Items.Add(BuildSharedTreeItem(sharedFiles));
@@ -62,7 +59,7 @@ namespace WClouds_WPF
             }
         }
 
-        // Builds the "Geteilt mit mir" virtual folder
+        // KI Start | Prompt: Bau mir die Treeview für die geteilten Dateien
         private TreeViewItem BuildSharedTreeItem(List<SharedFile> sharedFiles)
         {
 
@@ -88,6 +85,7 @@ namespace WClouds_WPF
 
             return sharedFolder;
         }
+        // KI Ende
 
         private async void Refresh_Click(object sender, RoutedEventArgs e)
         {
@@ -96,6 +94,7 @@ namespace WClouds_WPF
             await LoadFiles();
         }
 
+        // KI Start | Prompt: UploadFile_Click soll die Datei verschlüsseln bevor sie hochgeladen wird
         private async void UploadFile_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
@@ -128,7 +127,10 @@ namespace WClouds_WPF
             }
             finally { UploadFileBtn.IsEnabled = true; }
         }
+        // KI Ende
 
+
+        // KI Start | Prompt: DownloadFile_Click soll die Datei herunterladen und entschlüsseln und auch ganze Ordner herunterladen können
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
             if (FileTree.SelectedItem is not TreeViewItem item) return;
@@ -197,6 +199,7 @@ namespace WClouds_WPF
                 finally { DownloadBtn.IsEnabled = true; }
             }
         }
+        // KI Ende
 
         private void FileTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
@@ -206,8 +209,8 @@ namespace WClouds_WPF
                 {
                     selectedFileId = sharedFileId;
                     selectedFileName = sharedFileName;
-                    DownloadBtn.IsEnabled = canRead;   // nur wenn Lesezugriff
-                    ShareBtn.IsEnabled = false;         // geteilte Dateien nicht weitersharen
+                    DownloadBtn.IsEnabled = canRead;
+                    ShareBtn.IsEnabled = false;
                 }
 
                 else if (item.Tag is (int fileId, string fileName))
@@ -215,7 +218,6 @@ namespace WClouds_WPF
                     selectedFileId = fileId;
                     selectedFileName = fileName;
                     DownloadBtn.IsEnabled = true;
-                    // Only allow sharing own files (not files shared with you)
                     ShareBtn.IsEnabled = IsOwnFile(fileId);
                 }
                 else if (item.Tag is int folderId && folderId != -1)
@@ -235,14 +237,14 @@ namespace WClouds_WPF
             }
         }
 
-        // Checks if the selected file belongs to the current user (not in the shared folder)
+        // KI Start | Prompt: Wie kann ich erkennen ob die ausgewählte Datei eine eigene Datei ist oder eine geteilte Datei?
         private bool IsOwnFile(int fileId)
         {
             if (FileTree.SelectedItem is not TreeViewItem selected) return false;
-            // Walk up to find if this item lives under the "Geteilt mit mir" folder (Tag == -1)
             var parent = selected.Parent as TreeViewItem;
             return parent?.Tag is not -1 || parent?.Tag is null;
         }
+        // KI Ende
 
         private TreeViewItem BuildTreeItem(SavedDirectory directory)
         {
@@ -269,6 +271,8 @@ namespace WClouds_WPF
             return folderItem;
         }
 
+
+        // KI Start | Prompt: Ich will die Icons und Labels in der TreeView, wie mach ich das
         private StackPanel BuildHeader(string icon, string label)
         {
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
@@ -287,7 +291,9 @@ namespace WClouds_WPF
             });
             return sp;
         }
+        // KI Ende
 
+        // KI Start | Prompt: Ich will die Icons für die Dateien und Ordner, wie mach ich das
         private static string GetFolderIcon(SavedDirectory dir) =>
             (dir.Name == null || dir.Name == "Root") ? "☁" : "📁";
 
@@ -305,9 +311,12 @@ namespace WClouds_WPF
             ".doc" or ".docx" => "📃",
             _ => "📎"
         };
+        // KI Ende
 
         private void SetStatus(string message) => StatusText.Text = message;
 
+
+        // KI Start | Prompt: Wie würde das sharen aussehen im xaml.cs teil
         private void ShareBtn_Click(object sender, RoutedEventArgs e)
         {
             if (selectedFileId == null)
@@ -324,12 +333,16 @@ namespace WClouds_WPF
             if (dialog.ShowDialog() == true)
                 SetStatus($"✔ \"{selectedFileName}\" erfolgreich geteilt.");
         }
+        // KI Ende
 
         private async void UploadFolder_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Ordner zum Hochladen auswählen" };
-            if (dialog.ShowDialog() != true) return;
-
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+                
             int? parentFolderId = GetSelectedFolderId();
             SetStatus("Lade Ordner hoch…");
             UploadFileBtn.IsEnabled = false;
@@ -337,13 +350,13 @@ namespace WClouds_WPF
             try
             {
                 await storageService.UploadDirectory(dialog.FolderName, App.CurrentUserId, parentFolderId);
-                SetStatus("✔ Ordner erfolgreich hochgeladen.");
+                SetStatus("Ordner erfolgreich hochgeladen.");
                 await LoadFiles();
             }
             catch (Exception ex)
             {
-                SetStatus("⚠ Upload fehlgeschlagen.");
-                MessageBox.Show($"Fehler:\n{ex.Message}");
+                SetStatus("Upload fehlgeschlagen.");
+                MessageBox.Show($"Fehler: {ex.Message}");
             }
             finally { UploadFileBtn.IsEnabled = true; }
         }
