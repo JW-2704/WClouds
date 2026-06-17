@@ -20,7 +20,10 @@ namespace WClouds_WPF.Logic
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/user/{UserID}");
             response.EnsureSuccessStatusCode();
             string details = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<User>(details);
+            // AI Agent: Backend liefert lowercase JSON-Keys (id, email,
+            // storage_plan), ohne PropertyNameCaseInsensitive blieben Id/
+            // Email/Storage_Plan immer auf ihrem Default-Wert (0/null).
+            return JsonSerializer.Deserialize<User>(details, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
         public async Task UpdateLogin(string email)

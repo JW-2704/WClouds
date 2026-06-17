@@ -1,3 +1,4 @@
+using Serilog;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -32,10 +33,12 @@ namespace WClouds_WPF
                 DataPage dataPage = new DataPage();
                 MainFrame.Content = dataPage;
                 await dataPage.LoadFiles();
+                Log.Logger.Information("User {Email} logged in successfully.", email);
             }
             catch
             {
                 MessageBox.Show("Login fehlgeschlagen.");
+                Log.Logger.Warning("Failed login attempt for email: {Email}", email);
             }
         }
 

@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using Serilog;
 using System;
 using System.IO;
 using System.Windows;
@@ -48,6 +49,7 @@ namespace WClouds_WPF
                 Authenticator authenticator = new Authenticator();
                 await authenticator.Register(email, password, key);
                 MainFrame.Content = new SignInPage();
+                Log.Logger.Information("Benutzerregistrierung erfolgreich für {Email}", email);
             }
             catch
             {

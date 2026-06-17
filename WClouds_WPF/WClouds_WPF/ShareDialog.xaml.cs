@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Serilog;
+using System.Collections.Generic;
 using System.Windows;
 using WClouds_WPF.Logic;
 // AI Prompt: i now have created a share button and i want it to pop up a little window where you can type in the email of the user and check read write access
@@ -45,6 +46,7 @@ namespace WClouds_WPF
                     CanWrite: CanWriteBox.IsChecked == true,
                     FileID: _fileId
                 );
+                Log.Logger.Information("Successfully shared file.");
 
                 DialogResult = true;
                 Close();

@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,6 +26,7 @@ namespace WClouds_WPF
 
         private int? GetSelectedFolderId()
         {
+            Log.Logger.Debug("GetSelectedFolderId called");
             if (FileTree.SelectedItem is TreeViewItem item)
             {
                 if (item.Tag is int folderId) return folderId;
@@ -37,6 +39,7 @@ namespace WClouds_WPF
         public async Task LoadFiles()
         {
             SetStatus("Lade Dateien…");
+            Log.Logger.Information("Loading files for user {UserId}", App.CurrentUserId);
             try
             {
                 FileTree.Items.Clear();
@@ -56,12 +59,15 @@ namespace WClouds_WPF
             catch
             {
                 SetStatus("Keine Dateien gefunden.");
+                Log.Logger.Error("Failed to load files for user {UserId}", App.CurrentUserId);
             }
         }
 
         // KI Start | Prompt: Bau mir die Treeview für die geteilten Dateien
         private TreeViewItem BuildSharedTreeItem(List<SharedFile> sharedFiles)
         {
+
+            Log.Logger.Debug("BuildSharedTreeItem called with {Count} shared files", sharedFiles?.Count ?? 0);
 
             var sharedFolder = new TreeViewItem
             {
@@ -89,6 +95,7 @@ namespace WClouds_WPF
 
         private async void Refresh_Click(object sender, RoutedEventArgs e)
         {
+            Log.Logger.Information("Refresh clicked by user {UserId}", App.CurrentUserId);
             selectedFileId = null;
             DownloadBtn.IsEnabled = false;
             await LoadFiles();
@@ -97,6 +104,7 @@ namespace WClouds_WPF
         // KI Start | Prompt: UploadFile_Click soll die Datei verschlüsseln bevor sie hochgeladen wird
         private async void UploadFile_Click(object sender, RoutedEventArgs e)
         {
+            Log.Logger.Information("UploadFile_Click triggered by user {UserId}", App.CurrentUserId);
             var dialog = new OpenFileDialog
             {
                 Title = "Datei zum Hochladen auswählen",
@@ -117,11 +125,13 @@ namespace WClouds_WPF
                 byte[] rawBytes = await File.ReadAllBytesAsync(path);
                 var file = new SavedFile { FileName = fileName, Extension = extension, Content = rawBytes };
                 await storageService.UploadFile(file, App.CurrentUserId, GetSelectedFolderId());
+                Log.Logger.Information("File uploaded: {FileName}{Ext} by user {UserId}", fileName, extension, App.CurrentUserId);
                 SetStatus($"✔ {fileName}{extension} erfolgreich hochgeladen.");
                 await LoadFiles();
             }
             catch (Exception ex)
             {
+                Log.Logger.Error(ex, "Upload failed for {FileName}{Ext} by user {UserId}", fileName, extension, App.CurrentUserId);
                 SetStatus("⚠ Upload fehlgeschlagen.");
                 MessageBox.Show($"Fehler beim Hochladen:\n{ex.Message}");
             }
@@ -133,10 +143,12 @@ namespace WClouds_WPF
         // KI Start | Prompt: DownloadFile_Click soll die Datei herunterladen und entschlüsseln und auch ganze Ordner herunterladen können
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
+            Log.Logger.Information("DownloadFile_Click triggered by user {UserId}", App.CurrentUserId);
             if (FileTree.SelectedItem is not TreeViewItem item) return;
 
             if (item.Tag is (int sharedFileId, string sharedFileName, bool canRead, bool _))
             {
+                Log.Logger.Debug("Downloading shared file {SharedFileId} (canRead={CanRead})", sharedFileId, canRead);
                 if (!canRead)
                 {
                     SetStatus("⚠ Kein Lesezugriff auf diese Datei.");
@@ -157,14 +169,16 @@ namespace WClouds_WPF
                     byte[]? decrypted = await storageService.DownloadFile(sharedFileId);
                     if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
                     await File.WriteAllBytesAsync(dialog.FileName, decrypted);
+                    Log.Logger.Information("Downloaded shared file {SharedFileId} to {Path}", sharedFileId, dialog.FileName);
                     SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
                 }
-                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                catch (Exception ex) { Log.Logger.Error(ex, "Download failed for shared file {SharedFileId}", sharedFileId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
                 finally { DownloadBtn.IsEnabled = true; }
             }
 
             else if (item.Tag is (int fileId, string fileName))
             {
+                Log.Logger.Debug("Downloading own file {FileId}", fileId);
                 var dialog = new SaveFileDialog
                 {
                     Title = "Datei speichern unter…",
@@ -179,13 +193,15 @@ namespace WClouds_WPF
                     byte[]? decrypted = await storageService.DownloadFile(fileId);
                     if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
                     await File.WriteAllBytesAsync(dialog.FileName, decrypted);
+                    Log.Logger.Information("Downloaded file {FileId} to {Path}", fileId, dialog.FileName);
                     SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
                 }
-                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                catch (Exception ex) { Log.Logger.Error(ex, "Download failed for file {FileId}", fileId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
                 finally { DownloadBtn.IsEnabled = true; }
             }
             else if (item.Tag is int folderId && folderId != -1)
             {
+                Log.Logger.Debug("Downloading folder {FolderId}", folderId);
                 var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Zielordner auswählen" };
                 if (dialog.ShowDialog() != true) return;
                 SetStatus("Lade Ordner herunter…");
@@ -193,9 +209,10 @@ namespace WClouds_WPF
                 try
                 {
                     await storageService.DownloadDirectory(folderId, dialog.FolderName);
+                    Log.Logger.Information("Downloaded folder {FolderId} to {Path}", folderId, dialog.FolderName);
                     SetStatus("✔ Ordner gespeichert.");
                 }
-                catch (Exception ex) { SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
+                catch (Exception ex) { Log.Logger.Error(ex, "Download folder failed for {FolderId}", folderId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
                 finally { DownloadBtn.IsEnabled = true; }
             }
         }
@@ -319,8 +336,10 @@ namespace WClouds_WPF
         // KI Start | Prompt: Wie würde das sharen aussehen im xaml.cs teil
         private void ShareBtn_Click(object sender, RoutedEventArgs e)
         {
+            Log.Logger.Information("ShareBtn_Click invoked by user {UserId} for selectedFileId={SelectedFileId}", App.CurrentUserId, selectedFileId);
             if (selectedFileId == null)
             {
+                Log.Logger.Warning("Share attempted without selection by user {UserId}", App.CurrentUserId);
                 SetStatus("⚠ Bitte zuerst eine Datei auswählen.");
                 return;
             }
@@ -331,12 +350,16 @@ namespace WClouds_WPF
             };
 
             if (dialog.ShowDialog() == true)
+            {
+                Log.Logger.Information("File {SelectedFileId} (\"{SelectedFileName}\") shared by user {UserId}", selectedFileId, selectedFileName, App.CurrentUserId);
                 SetStatus($"✔ \"{selectedFileName}\" erfolgreich geteilt.");
+            }
         }
         // KI Ende
 
         private async void UploadFolder_Click(object sender, RoutedEventArgs e)
         {
+            Log.Logger.Information("UploadFolder_Click invoked by user {UserId}", App.CurrentUserId);
             var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Ordner zum Hochladen auswählen" };
             if (dialog.ShowDialog() != true)
             {
@@ -350,11 +373,13 @@ namespace WClouds_WPF
             try
             {
                 await storageService.UploadDirectory(dialog.FolderName, App.CurrentUserId, parentFolderId);
+                Log.Logger.Information("Folder uploaded from {Path} by user {UserId} into parentFolderId={Parent}", dialog.FolderName, App.CurrentUserId, parentFolderId);
                 SetStatus("Ordner erfolgreich hochgeladen.");
                 await LoadFiles();
             }
             catch (Exception ex)
             {
+                Log.Logger.Error(ex, "UploadFolder failed from {Path} by user {UserId}", dialog.FolderName, App.CurrentUserId);
                 SetStatus("Upload fehlgeschlagen.");
                 MessageBox.Show($"Fehler: {ex.Message}");
             }
