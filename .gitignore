@@ -19,23 +19,23 @@ mono_crash.*
 
 # Build results
 # [Dd]ebug/
-[Dd]ebugPublic/
+# [Dd]ebugPublic/
 # [Rr]elease/
-[Rr]eleases/
+# [Rr]eleases/
 
-[Dd]ebug/x64/
-[Dd]ebugPublic/x64/
-[Rr]elease/x64/
-[Rr]eleases/x64/
-# bin/x64/
-# obj/x64/
+# [Dd]ebug/x64/
+# [Dd]ebugPublic/x64/
+# [Rr]elease/x64/
+# [Rr]eleases/x64/
+bin/x64/
+obj/x64/
 
-[Dd]ebug/x86/
-[Dd]ebugPublic/x86/
-[Rr]elease/x86/
-[Rr]eleases/x86/
-# bin/x86/
-# obj/x86/
+# [Dd]ebug/x86/
+# [Dd]ebugPublic/x86/
+# [Rr]elease/x86/
+# [Rr]eleases/x86/
+bin/x86/
+obj/x86/
 
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
@@ -49,8 +49,6 @@ bld/
 
 # Build results on 'Bin' directories
 # **/[Bb]in/*
-# Uncomment if you have tasks that rely on *.refresh files to move binaries
-# (https://github.com/github/gitignore/pull/3736)
 #!**/[Bb]in/*.refresh
 
 # Visual Studio 2015/2017 cache/options directory
@@ -109,7 +107,6 @@ StyleCopReport.xml
 *.pgc
 *.pgd
 *.rsp
-# but not Directory.Build.rsp, as it configures directory-level build defaults
 !Directory.Build.rsp
 *.sbr
 *.tlb
@@ -212,27 +209,17 @@ publish/
 # Publish Web Output
 *.[Pp]ublish.xml
 *.azurePubxml
-# Note: Comment the next line if you want to checkin your web deploy settings,
-# but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
 *.publishproj
 
-# Microsoft Azure Web App publish settings. Comment the next line if you want to
-# checkin your Azure Web App publish settings, but sensitive information contained
-# in these scripts will be unencrypted
+# Microsoft Azure Web App publish settings.
 PublishScripts/
 
 # NuGet Packages
 *.nupkg
-# NuGet Symbol Packages
 *.snupkg
-# The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
-# except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
-# Uncomment if necessary however generally it will be regenerated when needed
-#!**/[Pp]ackages/repositories.config
-# NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
 
@@ -254,9 +241,7 @@ _pkginfo.txt
 *.appxupload
 
 # Visual Studio cache files
-# files ending in .cache can be ignored
 *.[Cc]ache
-# but keep track of directories ending in .cache
 !?*.[Cc]ache/
 
 # Others
@@ -270,20 +255,10 @@ ClientBin/
 *.publishsettings
 orleans.codegen.cs
 
-# Including strong name files can present a security risk
-# (https://github.com/github/gitignore/pull/2483#issue-259490424)
-#*.snk
-
-# Since there are multiple workflows, uncomment next line to ignore bower_components
-# (https://github.com/github/gitignore/pull/1529#issuecomment-104372622)
-#bower_components/
-
 # RIA/Silverlight projects
 Generated_Code/
 
-# Backup & report files from converting an old project file
-# to a newer Visual Studio version. Backup files are not needed,
-# because we have git ;-)
+# Backup & report files
 _UpgradeReport_Files/
 Backup*/
 UpgradeLog*.XML
@@ -321,10 +296,10 @@ node_modules/
 # Visual Studio 6 workspace options file
 *.opt
 
-# Visual Studio 6 auto-generated workspace file (contains which files were open etc.)
+# Visual Studio 6 auto-generated workspace file
 *.vbw
 
-# Visual Studio 6 workspace and project file (working project files containing files to include in project)
+# Visual Studio 6 workspace and project file
 *.dsw
 *.dsp
 
@@ -353,10 +328,6 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 **/__pycache__/
 *.pyc
-
-# Cake - Uncomment if you are using it
-#tools/**
-#!tools/packages.config
 
 # Tabs Studio
 *.tss
@@ -430,7 +401,6 @@ FodyWeavers.xsd
 
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -456,9 +426,6 @@ var/
 .installed.cfg
 *.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -519,9 +486,8 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
 ### VirtualEnv template
-# Virtualenv
-# http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
 # [Bb]in
 [Ii]nclude
 [Ll]ib
@@ -533,23 +499,13 @@ pyvenv.cfg
 pip-selfcheck.json
 
 ### JetBrains template
-# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
-# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
-
-# User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
-
-# AWS User-specific
 .idea/**/aws.xml
-
-# Generated files
 .idea/**/contentModel.xml
-
-# Sensitive or high-churn files
 .idea/**/dataSources/
 .idea/**/dataSources.ids
 .idea/**/dataSources.local.xml
@@ -557,62 +513,25 @@ pip-selfcheck.json
 .idea/**/dynamic.xml
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
-
-# Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
-
-# Gradle and Maven with auto-import
-# When using Gradle or Maven with auto-import, you should exclude module files,
-# since they will be recreated, and may cause churn.  Uncomment if using
-# auto-import.
-# .idea/artifacts
-# .idea/compiler.xml
-# .idea/jarRepositories.xml
-# .idea/modules.xml
-# .idea/*.iml
-# .idea/modules
-# *.iml
-# *.ipr
-
-# CMake
 cmake-build-*/
-
-# Mongo Explorer plugin
 .idea/**/mongoSettings.xml
-
-# File-based project format
 *.iws
-
-# IntelliJ
 out/
-
-# mpeltonen/sbt-idea plugin
 .idea_modules/
-
-# JIRA plugin
 atlassian-ide-plugin.xml
-
-# Cursive Clojure plugin
 .idea/replstate.xml
-
-# SonarLint plugin
 .idea/sonarlint/
-
-# Crashlytics plugin (for Android Studio and IntelliJ)
 com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
-
-# Editor-based Rest Client
 .idea/httpRequests
-
-# Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
-# idea folder, uncomment if you don't need it
-# .idea
+WClouds.db
+
 # Abgabe: bin-Verzeichnis einschließen
 !bin/
 !bin/**
