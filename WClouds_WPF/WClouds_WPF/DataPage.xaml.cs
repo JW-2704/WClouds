@@ -183,7 +183,7 @@ namespace WClouds_WPF
                 foreach (SharedFile file in sharedFilesCache)
                 {
                     Info? info = await storageService.GetFileInfos(file.ID);
-                    Info effective = info ?? new Info(null, null, 0, 0, 0, $"{file.FileName}{file.Extension}");
+                    Info effective = info ?? new Info(null, null, 0, "", "", $"{file.FileName}{file.Extension}");
 
                     entries.Add(new FileExplorerEntry(
                         effective, file.ID, isFolder: false,
