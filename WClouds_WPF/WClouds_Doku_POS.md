@@ -184,6 +184,12 @@ Ablauf:
 4. Der Server liefert einen Session-Key zurück.
 5. Der Session-Key wird im HttpClient gespeichert.
 
+### Datei-Overwrite
+
+1. Benutzer wählt Datei aus.
+2. File Explorer öffnet sich und man muss seine gewünschte Datei aussuchen die jeweilige ersetzt.
+3. Inhalt der Datei wird überschrieben und in die History abgespeichert.
+
 ### Datei-Upload
 
 1. Benutzer wählt eine Datei aus.
@@ -192,12 +198,24 @@ Ablauf:
 4. Verschlüsselte Daten und Nonce werden an den Server übertragen.
 5. Der Server speichert ausschließlich die verschlüsselten Daten.
 
+### Datei-Delete
+
+1. Benutzer wählt Datei aus.
+2. Datei wird mit zugehöriger ID verglichen.
+3. Datei wird aus der Datenbank gelöscht.
+
 ### Datei-Download
 
 1. Benutzer fordert eine Datei an.
 2. Server liefert verschlüsselte Datei und Nonce.
 3. Client entschlüsselt die Datei lokal.
 4. Datei wird gespeichert.
+
+### Datei-History
+
+1. Benutzer wählt Datei aus.
+2. Falls die Datei bereits überschrieben wurde werden die alten Versionen angezeigt.
+3. Diese kann man als Backup runterladen.
 
 ### Ordner-Upload
 
@@ -256,7 +274,7 @@ Ablauf:
 | 15.06.2026 | Wörz   | ShareService gefixed, canread/canwrite eingebaut und alle Methoden fertig gemacht |
 | 16.06.2026 | Wörz   | Restlichen KI Kommentare                                                          |
 | 17.06.2026 | Wörz   | Logging eingebaut                                                                 |
-| 18.06.2026 | Karan  | WCloud File Explorer Integration eingebaut, Infos anzeigen lassen                 |
+| 18.06.2026 | Karan  | WCloud File Explorer Integration eingebaut, Infos anzeigen lassen, Delete         |
 
 
 <div style="page-break-after: always;"></div>
