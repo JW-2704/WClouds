@@ -239,6 +239,7 @@
                         <TextBlock Text="Datei hochladen" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                
                 <Button x:Name="UploadFolderBtn"
         Style="{StaticResource UploadBtn}"
         Click="UploadFolder_Click"
