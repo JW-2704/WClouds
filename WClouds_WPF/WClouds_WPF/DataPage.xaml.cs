@@ -565,7 +565,7 @@ namespace WClouds_WPF
         public string SizeDisplay => $"{Size:N3} MB";
 
         public string ChangedDisplay =>
-            ChangedDate.HasValue ? $"{ChangedDate:dd.MM.yyyy} {ChangedTime}" : "—";
+            ChangedDate != null ? $"{ChangedDate} {ChangedTime}" : "—";
 
         // Schloss-Symbol nur bei geteilten Dateien ohne Schreibrecht
         public Visibility LockVisibility =>

@@ -18,6 +18,6 @@ namespace WClouds_WPF.Logic
 
         public string Icon => IsFolder ? "📁" : DataPage.GetFileIcon(Name);
         public string ChangedDisplay =>
-            ChangedDate.HasValue ? $"{ChangedDate:dd.MM.yyyy} {ChangedTime}" : "—";
+            ChangedDate != null ? $"{ChangedDate} {ChangedTime}" : "—";
     }
 }
