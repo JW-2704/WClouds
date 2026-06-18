@@ -238,6 +238,18 @@ namespace WClouds_WPF.Logic
             return JsonSerializer.Deserialize<Info>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
+        public async Task DeleteFile(int fileId)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.DeleteAsync($"/files/{fileId}");
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task DeleteDirectory(int directoryId)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.DeleteAsync($"/directories/{directoryId}");
+            response.EnsureSuccessStatusCode();
+        }
+
         // KI Start | Prompt: Ich brauch noch für jeden User von Anfang an ein Root
         public async Task<SavedDirectory?> GetRootDirectory(int userId)
         {

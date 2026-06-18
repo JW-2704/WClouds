@@ -210,6 +210,7 @@ namespace WClouds_WPF
                 DownloadBtn.IsEnabled = false;
                 ShareBtn.IsEnabled = false;
                 OverwriteBtn.IsEnabled = false;
+                DeleteBtn.IsEnabled = false;
                 return;
             }
 
@@ -217,21 +218,19 @@ namespace WClouds_WPF
             {
                 selectedFileId = null;
                 selectedFileName = null;
-                DownloadBtn.IsEnabled = true; // ganzer Ordner kann runtergeladen werden
+                DownloadBtn.IsEnabled = true;
                 ShareBtn.IsEnabled = false;
                 OverwriteBtn.IsEnabled = false;
+                DeleteBtn.IsEnabled = !entry.IsShared;
                 return;
             }
 
             selectedFileId = entry.Id;
             selectedFileName = entry.Name;
             DownloadBtn.IsEnabled = !entry.IsShared || entry.CanRead;
-            ShareBtn.IsEnabled = !entry.IsShared; // teilen nur bei eigenen Dateien
-
-            // Eigene Datei -> immer Schreibzugriff.
-            // AI Agent: Ueberschreiben-Button nur bei can_write
-            // freigegeben (geteilte Datei mit Schreibzugriff).
+            ShareBtn.IsEnabled = !entry.IsShared;
             OverwriteBtn.IsEnabled = !entry.IsShared || entry.CanWrite;
+            DeleteBtn.IsEnabled = !entry.IsShared;
         }
 
         // Doppelklick auf einen Ordner in der Liste -> im FolderTree
@@ -424,6 +423,43 @@ namespace WClouds_WPF
                 MessageBox.Show($"Fehler beim Überschreiben:\n{ex.Message}");
             }
             finally { OverwriteBtn.IsEnabled = true; }
+        }
+
+        private async void DeleteEntry_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileList.SelectedItem is not FileExplorerEntry entry) return;
+
+            string label = entry.IsFolder ? $"den Ordner \"{entry.Name}\"" : $"die Datei \"{entry.Name}\"";
+            string warning = entry.IsFolder ? "\nAlle Inhalte werden unwiderruflich gelöscht." : "";
+            var result = MessageBox.Show(
+                $"Möchtest du {label} wirklich löschen?{warning}",
+                "Löschen bestätigen",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            SetStatus($"Lösche \"{entry.Name}\"…");
+            DeleteBtn.IsEnabled = false;
+            try
+            {
+                if (entry.IsFolder)
+                    await storageService.DeleteDirectory(entry.Id);
+                else
+                    await storageService.DeleteFile(entry.Id);
+
+                Log.Logger.Information("Deleted {Type} {Id} by user {UserId}",
+                    entry.IsFolder ? "folder" : "file", entry.Id, App.CurrentUserId);
+                SetStatus($"✔ \"{entry.Name}\" gelöscht.");
+                await LoadFiles();
+            }
+            catch (Exception ex)
+            {
+                Log.Logger.Error(ex, "Delete failed for {Id}", entry.Id);
+                SetStatus("⚠ Löschen fehlgeschlagen.");
+                MessageBox.Show($"Fehler beim Löschen:\n{ex.Message}");
+                DeleteBtn.IsEnabled = true;
+            }
         }
 
         // KI Start | Prompt: Ich will die Icons und Labels in der TreeView, wie mach ich das
