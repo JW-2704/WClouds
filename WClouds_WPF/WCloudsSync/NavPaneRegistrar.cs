@@ -13,8 +13,30 @@ namespace WCloudsSync
         // Stabile GUID für WClouds – darf sich nie ändern
         private const string ClsidGuid = "{A7B1C2D3-E4F5-6789-ABCD-EF0123456789}";
 
-        private static string AppExePath =>
-            Path.Combine(AppContext.BaseDirectory, "WClouds_WPF.exe");
+        private static string AppExePath
+        {
+            get
+            {
+                // Installed: WClouds_WPF.exe and WCloudsSync.exe are in the same folder.
+                string local = Path.Combine(AppContext.BaseDirectory, "WClouds_WPF.exe");
+                if (File.Exists(local)) return local;
+
+                // Dev build: WCloudsSync is in WCloudsSync\bin\..., WPF is in WClouds_WPF\bin\...
+                // Walk up to the solution root and find the sibling WPF output.
+                string dir = AppContext.BaseDirectory;
+                for (int i = 0; i < 6; i++)
+                {
+                    dir = Path.GetDirectoryName(dir) ?? dir;
+                    string candidate = Path.Combine(dir, "WClouds_WPF", "bin", "Release",
+                        "net10.0-windows7.0", "WClouds_WPF.exe");
+                    if (File.Exists(candidate)) return candidate;
+                    candidate = Path.Combine(dir, "WClouds_WPF", "bin", "Debug",
+                        "net10.0-windows7.0", "WClouds_WPF.exe");
+                    if (File.Exists(candidate)) return candidate;
+                }
+                return local;
+            }
+        }
 
         /// <summary>
         /// Registriert die Namespace-Erweiterung für den aktuellen Benutzer.
