@@ -211,6 +211,7 @@ namespace WClouds_WPF
                 ShareBtn.IsEnabled = false;
                 OverwriteBtn.IsEnabled = false;
                 DeleteBtn.IsEnabled = false;
+                HistoryBtn.IsEnabled = false;
                 return;
             }
 
@@ -222,6 +223,7 @@ namespace WClouds_WPF
                 ShareBtn.IsEnabled = false;
                 OverwriteBtn.IsEnabled = false;
                 DeleteBtn.IsEnabled = !entry.IsShared;
+                HistoryBtn.IsEnabled = true;
                 return;
             }
 
@@ -231,6 +233,7 @@ namespace WClouds_WPF
             ShareBtn.IsEnabled = !entry.IsShared;
             OverwriteBtn.IsEnabled = !entry.IsShared || entry.CanWrite;
             DeleteBtn.IsEnabled = !entry.IsShared;
+            HistoryBtn.IsEnabled = !entry.IsShared || entry.CanRead;
         }
 
         // Doppelklick auf einen Ordner in der Liste -> im FolderTree
@@ -423,6 +426,17 @@ namespace WClouds_WPF
                 MessageBox.Show($"Fehler beim Überschreiben:\n{ex.Message}");
             }
             finally { OverwriteBtn.IsEnabled = true; }
+        }
+
+        private void HistoryBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileList.SelectedItem is not FileExplorerEntry entry) return;
+
+            var dialog = new HistoryDialog(entry.Id, entry.Name, entry.IsFolder)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            dialog.ShowDialog();
         }
 
         private async void DeleteEntry_Click(object sender, RoutedEventArgs e)

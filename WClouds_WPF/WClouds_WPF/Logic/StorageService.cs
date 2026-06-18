@@ -238,6 +238,32 @@ namespace WClouds_WPF.Logic
             return JsonSerializer.Deserialize<Info>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
+        public async Task<List<HistoryEntry>> GetFileHistory(int fileId)
+        {
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/{fileId}/history");
+            response.EnsureSuccessStatusCode();
+            string body = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<List<HistoryEntry>>(body,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        }
+
+        public async Task<byte[]?> DownloadHistoryBackup(int historyId, int fileId)
+        {
+            byte[] dek = await GetDek(fileId);
+
+            HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/files/history/{historyId}/download");
+            response.EnsureSuccessStatusCode();
+
+            string? nonce = null;
+            if (response.Headers.TryGetValues("X-Nonce", out var values))
+                nonce = System.Linq.Enumerable.FirstOrDefault(values);
+            if (nonce == null)
+                throw new Exception("Nonce fehlt in der Antwort");
+
+            byte[] encryptedData = await response.Content.ReadAsByteArrayAsync();
+            return EncryptionService.Decrypt(encryptedData, dek, nonce);
+        }
+
         public async Task DeleteFile(int fileId)
         {
             HttpResponseMessage response = await Webservice.HttpClient.DeleteAsync($"/files/{fileId}");
