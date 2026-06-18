@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using RichardSzalay.MockHttp;
 using Xunit;
+using System.Linq;
 using WClouds_WPF.Logic;
 
 namespace WClouds_WPF.Tests;
@@ -16,29 +17,41 @@ public class InfoTests
     [Fact]
     public void Info_ConstructorSetsAllProperties()
     {
-        var date = new DateTime(2024, 6, 1);
-        var time = new TimeOnly(14, 30, 0);
+        var info = new Info(
+            "2024-06-01",
+            "14:30:00",
+            1024.5,
+            "2",
+            "1",
+            "report.pdf");
 
-        var info = new Info(date, time, 1024.5, changedUser: 2, owner: 1, name: "report.pdf");
-
-        Assert.Equal(date, info.ChangedDate);
-        Assert.Equal(time, info.ChangedTime);
+        Assert.Equal("2024-06-01", info.ChangedDate);
+        Assert.Equal("14:30:00", info.ChangedTime);
         Assert.Equal(1024.5, info.Size);
-        Assert.Equal(2, info.ChangedUser);
-        Assert.Equal(1, info.Owner);
+        Assert.Equal("2", info.ChangedUser);
+        Assert.Equal("1", info.Owner);
         Assert.Equal("report.pdf", info.Name);
     }
 
     [Fact]
     public void Info_EqualityByValue()
     {
-        var date = new DateTime(2024, 1, 1);
-        var time = new TimeOnly(12, 0);
+        var a = new Info(
+            "2024-01-01",
+            "12:00:00",
+            10,
+            "1",
+            "2",
+            "file.txt");
 
-        var a = new Info(date, time, 10, 1, 2, "file.txt");
-        var b = new Info(date, time, 10, 1, 2, "file.txt");
+        var b = new Info(
+            "2024-01-01",
+            "12:00:00",
+            10,
+            "1",
+            "2",
+            "file.txt");
 
-        // Records use structural equality
         Assert.Equal(a, b);
     }
 }
@@ -228,11 +241,11 @@ public class SavedFileGetHistoryTests : WebserviceTestBase
         {
             new
             {
-                ChangedDate = new DateTime(2024, 5, 1),
-                ChangedTime = new TimeOnly(10, 0),
+                ChangedDate = "2024-05-01",
+                ChangedTime = "10:00:00",
                 Size        = 512.0,
-                ChangedUser = 1,
-                Owner       = 2,
+                ChangedUser = "1",
+                Owner       = "2",
                 Name        = "img.png"
             }
         };

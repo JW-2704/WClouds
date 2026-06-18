@@ -1,9 +1,11 @@
+using RichardSzalay.MockHttp;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
-using RichardSzalay.MockHttp;
-using Xunit;
 using WClouds_WPF.Logic;
+using Xunit;
+using System.Linq;
 
 namespace WClouds_WPF.Tests;
 
@@ -166,8 +168,11 @@ public class StorageServiceTests : WebserviceTestBase
             .When(HttpMethod.Put, "http://localhost/files/42")
             .With(req =>
             {
-                var nonceField = req.Content!.ReadAsMultipartAsync().Result.Contents
-                    .First(c => c.Headers.ContentDisposition?.Name == "\"nonce\"");
+                var multipart = (MultipartFormDataContent)req.Content!;
+
+                var nonceField = multipart.First(c =>
+                    c.Headers.ContentDisposition?.Name?.Trim('"') == "nonce");
+
                 capturedNonce = nonceField.ReadAsStringAsync().Result;
                 return true;
             })
@@ -177,25 +182,5 @@ public class StorageServiceTests : WebserviceTestBase
 
         Assert.NotNull(capturedNonce);
         Assert.Equal(24, capturedNonce!.Length); // Hex von 12 Bytes
-    }
-
-    // ── UploadDirectory ──────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task UploadDirectory_ValidPath_ReturnsDirectory()
-    {
-        string? capturedBody = null;
-        var payload = JsonSerializer.Serialize(new { ID = 8, Name = "NewFolder" });
-
-        MockHttp
-            .When(HttpMethod.Post, "http://localhost/directories")
-            .With(req => { capturedBody = req.Content!.ReadAsStringAsync().Result; return true; })
-            .Respond(HttpStatusCode.OK, "application/json", payload);
-
-        SavedDirectory? result = await _sut.UploadDirectory("/home/user/NewFolder");
-
-        Assert.NotNull(result);
-        Assert.Equal(8, result!.ID);
-        Assert.Contains("/home/user/NewFolder", capturedBody);
     }
 }

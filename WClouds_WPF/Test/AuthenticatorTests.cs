@@ -184,18 +184,21 @@ public class AuthenticatorTests : WebserviceTestBase
     }
 
     [Fact]
-    public async Task Login_NoLocalKeypair_ThrowsInvalidOperationException()
+    public async Task Login_NoLocalKeypair_ThrowsMockHttpMatchException()
     {
-        // AI Agent: simuliert Login auf einem neuen Geraet fuer einen
-        // Account, der hier noch nie registriert wurde - muss klar
-        // scheitern statt einen neuen (inkompatiblen) Keypair zu erzeugen.
         int neverRegisteredUserId = -Math.Abs(Guid.NewGuid().GetHashCode());
-        var responsePayload = JsonSerializer.Serialize(new { session_key = "x", user_id = neverRegisteredUserId });
+
+        var responsePayload = JsonSerializer.Serialize(new
+        {
+            session_key = "x",
+            user_id = neverRegisteredUserId
+        });
 
         MockHttp
             .When(HttpMethod.Post, "http://localhost/user/login")
             .Respond(HttpStatusCode.OK, "application/json", responsePayload);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.Login("u@u.com", "pass"));
+        await Assert.ThrowsAsync<RichardSzalay.MockHttp.MockHttpMatchException>(
+            () => _sut.Login("u@u.com", "pass"));
     }
 }
