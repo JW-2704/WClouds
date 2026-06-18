@@ -13,4 +13,5 @@ und lade den Source Code runter
 danach mit Pycharm das Projekt öffnen und ein Venv erstellen
 Dann auf requirements und diese auch installieren ins Venv
 Jetzt init ausführern und auswählen was du machen willst
+(Wenn man einen Key erstellt muss man selber noch eine Textdatei erstellen mit dem jeweiligen Key der ausgegeben wird)
 Nun kannst du main.py starten und dich im Frontend anmelden bzw registrieren
