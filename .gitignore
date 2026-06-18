@@ -48,7 +48,7 @@ bld/
 [Ll]ogs/
 
 # Build results on 'Bin' directories
-**/[Bb]in/*
+# **/[Bb]in/*
 # Uncomment if you have tasks that rely on *.refresh files to move binaries
 # (https://github.com/github/gitignore/pull/3736)
 #!**/[Bb]in/*.refresh
@@ -522,7 +522,7 @@ ENV/
 ### VirtualEnv template
 # Virtualenv
 # http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
-[Bb]in
+# [Bb]in
 [Ii]nclude
 [Ll]ib
 [Ll]ib64
