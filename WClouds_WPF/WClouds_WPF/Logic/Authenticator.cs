@@ -73,10 +73,22 @@ namespace WClouds_WPF.Logic
             LoginResponse loginResponse = JsonSerializer.Deserialize<LoginResponse>(body)!;
 
             Webservice.SetApiKey(loginResponse.session_key);
-            // AI Agent: laedt NUR den lokal vorhandenen Private Key dieses
-            // Accounts - generiert NIE einen neuen (siehe Begründung in
-            // EncryptionService.Initialize).
-            EncryptionService.Initialize(loginResponse.user_id);
+            try
+            {
+                EncryptionService.Initialize(loginResponse.user_id);
+            }
+            catch (InvalidOperationException)
+            {
+                // Kein lokaler Key — Account wurde via init.py angelegt.
+                // Neues Keypair generieren und Public Key einmalig hochladen.
+                string tempId = Guid.NewGuid().ToString();
+                string publicKey = EncryptionService.GenerateAndStoreNewKeypair(tempId);
+                EncryptionService.PersistKeypairForUser(tempId, loginResponse.user_id);
+                await Webservice.HttpClient.PatchAsJsonAsync(
+                    $"/user/{loginResponse.user_id}/public-key",
+                    new { public_key = publicKey });
+                EncryptionService.Initialize(loginResponse.user_id);
+            }
             return loginResponse;
         }
     }
