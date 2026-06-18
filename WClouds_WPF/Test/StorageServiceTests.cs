@@ -99,11 +99,26 @@ public class StorageServiceTests : WebserviceTestBase
 
     // ── DownloadFile ─────────────────────────────────────────────────────────
 
+    // AI Agent: DownloadFile holt jetzt zuerst per GET .../key den eigenen
+    // gewrappten DEK, bevor der eigentliche Download passiert - dieser
+    // Endpoint muss zusaetzlich gemockt werden.
+    private void MockFileKey(int fileId, byte[] dek)
+    {
+        string wrappedKey = EncryptionService.WrapKey(dek, TestPublicKey);
+        var payload = JsonSerializer.Serialize(new { wrapped_key = wrappedKey });
+        MockHttp
+            .When(HttpMethod.Get, $"http://localhost/files/{fileId}/key")
+            .Respond(HttpStatusCode.OK, "application/json", payload);
+    }
+
     [Fact]
     public async Task DownloadFile_WithNonceHeader_ReturnsDecryptedBytes()
     {
+        byte[] dek = EncryptionService.GenerateDek();
+        MockFileKey(10, dek);
+
         byte[] original = System.Text.Encoding.UTF8.GetBytes("file content");
-        var (encrypted, nonce) = EncryptionService.Encrypt(original);
+        var (encrypted, nonce) = EncryptionService.Encrypt(original, dek);
 
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -124,6 +139,8 @@ public class StorageServiceTests : WebserviceTestBase
     [Fact]
     public async Task DownloadFile_MissingNonceHeader_Throws()
     {
+        MockFileKey(20, EncryptionService.GenerateDek());
+
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
@@ -134,6 +151,32 @@ public class StorageServiceTests : WebserviceTestBase
             .Respond(_ => Task.FromResult(response));
 
         await Assert.ThrowsAsync<Exception>(() => _sut.DownloadFile(20));
+    }
+
+    // ── OverwriteFile (neues Feature) ───────────────────────────────────────
+
+    [Fact]
+    public async Task OverwriteFile_SendsPutWithSameDekDifferentNonce()
+    {
+        byte[] dek = EncryptionService.GenerateDek();
+        MockFileKey(42, dek);
+
+        string? capturedNonce = null;
+        MockHttp
+            .When(HttpMethod.Put, "http://localhost/files/42")
+            .With(req =>
+            {
+                var nonceField = req.Content!.ReadAsMultipartAsync().Result.Contents
+                    .First(c => c.Headers.ContentDisposition?.Name == "\"nonce\"");
+                capturedNonce = nonceField.ReadAsStringAsync().Result;
+                return true;
+            })
+            .Respond(HttpStatusCode.OK, "application/json", "{\"message\":\"overwritten\"}");
+
+        await _sut.OverwriteFile(42, System.Text.Encoding.UTF8.GetBytes("new content"));
+
+        Assert.NotNull(capturedNonce);
+        Assert.Equal(24, capturedNonce!.Length); // Hex von 12 Bytes
     }
 
     // ── UploadDirectory ──────────────────────────────────────────────────────

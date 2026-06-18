@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -8,6 +7,10 @@ using WClouds_WPF.Logic;
 
 namespace WClouds_WPF.Tests;
 
+// AI Agent: ShareFile(MemberIDs: List<int>, ...) -> ShareFile(MemberID: int,
+// WrappedKey: string, ...) - jeder Empfaenger braucht einen individuell mit
+// seinem Public Key gewrappten DEK, ShareDialog teilt ohnehin nur an einen
+// Empfaenger pro Durchlauf.
 public class ShareServiceTests : WebserviceTestBase
 {
     private readonly ShareService _sut = new();
@@ -21,7 +24,8 @@ public class ShareServiceTests : WebserviceTestBase
 
         // Should not throw
         await _sut.ShareFile(
-            MemberIDs: new List<int> { 1, 2, 3 },
+            MemberID: 1,
+            WrappedKey: "wrapped-dek-blob",
             CanRead: true,
             CanWrite: false,
             FileID: 10
@@ -39,7 +43,8 @@ public class ShareServiceTests : WebserviceTestBase
             .Respond(HttpStatusCode.OK);
 
         await _sut.ShareFile(
-            MemberIDs: new List<int> { 5, 6 },
+            MemberID: 5,
+            WrappedKey: "wrapped-dek-blob",
             CanRead: true,
             CanWrite: true,
             FileID: 99
@@ -53,23 +58,10 @@ public class ShareServiceTests : WebserviceTestBase
         Assert.True(root.GetProperty("canRead").GetBoolean());
         Assert.True(root.GetProperty("canWrite").GetBoolean());
 
-        var members = root.GetProperty("memberIds");
-        Assert.Equal(2, members.GetArrayLength());
-    }
-
-    [Fact]
-    public async Task ShareFile_EmptyMemberList_StillPostsSuccessfully()
-    {
-        MockHttp
-            .When(HttpMethod.Post, "http://localhost/share/file")
-            .Respond(HttpStatusCode.OK);
-
-        await _sut.ShareFile(
-            MemberIDs: new List<int>(),
-            CanRead: false,
-            CanWrite: false,
-            FileID: 1
-        );
+        var grants = root.GetProperty("grants");
+        Assert.Equal(1, grants.GetArrayLength());
+        Assert.Equal(5, grants[0].GetProperty("memberId").GetInt32());
+        Assert.Equal("wrapped-dek-blob", grants[0].GetProperty("wrappedKey").GetString());
     }
 
     [Fact]
@@ -80,7 +72,7 @@ public class ShareServiceTests : WebserviceTestBase
             .Respond(HttpStatusCode.Forbidden);
 
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => _sut.ShareFile(new List<int> { 1 }, true, false, 1)
+            () => _sut.ShareFile(1, "wrapped-dek-blob", true, false, 1)
         );
     }
 
@@ -94,7 +86,7 @@ public class ShareServiceTests : WebserviceTestBase
             .With(req => { capturedBody = req.Content!.ReadAsStringAsync().Result; return true; })
             .Respond(HttpStatusCode.OK);
 
-        await _sut.ShareFile(new List<int> { 1 }, CanRead: true, CanWrite: false, FileID: 3);
+        await _sut.ShareFile(1, "wrapped-dek-blob", CanRead: true, CanWrite: false, FileID: 3);
 
         using var doc = JsonDocument.Parse(capturedBody!);
         Assert.True(doc.RootElement.GetProperty("canRead").GetBoolean());

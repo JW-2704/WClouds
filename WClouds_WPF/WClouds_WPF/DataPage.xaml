@@ -154,6 +154,41 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
         </Style>
+
+        <!-- ListView (Datei-Detailliste, rechte Spalte) -->
+        <Style TargetType="ListView">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <Style TargetType="ListViewItem">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="Padding"         Value="4,4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background"      Value="#242436"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextMuted}"/>
+            <Setter Property="FontFamily"      Value="Segoe UI Semibold"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Padding"         Value="6,4"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource AccentBrush}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
     </Page.Resources>
 
     <Grid Background="{StaticResource BgBrush}">
@@ -227,6 +262,16 @@
                         <TextBlock Text="Herunterladen" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Button x:Name="OverwriteBtn"
+                        Style="{StaticResource ToolbarBtn}"
+                        Click="OverwriteFile_Click"
+                        IsEnabled="False"
+                        Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔁" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Überschreiben" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Button x:Name="LogoutBtn"
         Style="{StaticResource ToolbarBtn}"
         Click="Logout_Click"
@@ -239,12 +284,48 @@
             </StackPanel>
         </Border>
 
-        <!-- File Tree -->
-        <Border Grid.Row="2" Margin="12,8,12,4" Background="{StaticResource PanelBrush}"
-                CornerRadius="10" Padding="8">
-            <TreeView x:Name="FileTree"
-                      SelectedItemChanged="FileTree_SelectedItemChanged"/>
-        </Border>
+        <!-- Ordnerbaum (links) + Datei-Detailliste (rechts) -->
+        <Grid Grid.Row="2" Margin="12,8,12,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}"
+                    CornerRadius="10" Padding="8">
+                <TreeView x:Name="FolderTree"
+                          SelectedItemChanged="FolderTree_SelectedItemChanged"/>
+            </Border>
+
+            <Border Grid.Column="2" Background="{StaticResource PanelBrush}"
+                    CornerRadius="10" Padding="8">
+                <ListView x:Name="FileList"
+                          SelectionMode="Single"
+                          SelectionChanged="FileList_SelectionChanged"
+                          MouseDoubleClick="FileList_MouseDoubleClick">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Name" Width="280">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Icon}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding Name}"/>
+                                            <TextBlock Text=" 🔒" Visibility="{Binding LockVisibility}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Größe" Width="100" DisplayMemberBinding="{Binding SizeDisplay}"/>
+                            <GridViewColumn Header="Geändert am" Width="170" DisplayMemberBinding="{Binding ChangedDisplay}"/>
+                            <GridViewColumn Header="Eigentümer" Width="90" DisplayMemberBinding="{Binding Owner}"/>
+                            <GridViewColumn Header="Geändert von" Width="100" DisplayMemberBinding="{Binding ChangedUser}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Border>
+        </Grid>
 
         <!-- Status Bar -->
         <Border Grid.Row="3" Background="#242436" Padding="16,6">

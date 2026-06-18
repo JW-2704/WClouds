@@ -1,5 +1,8 @@
 using Serilog;
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using WClouds_WPF.Logic;
@@ -30,6 +33,10 @@ namespace WClouds_WPF
                 LoginResponse result = await authenticator.Login(email, password);
                 App.CurrentUserId = result.user_id;
 
+                // Session für WCloudsSync speichern und Sync-Prozess starten
+                SaveSession(result.user_id, result.session_key);
+                LaunchSyncProcess();
+
                 DataPage dataPage = new DataPage();
                 MainFrame.Content = dataPage;
                 await dataPage.LoadFiles();
@@ -48,6 +55,36 @@ namespace WClouds_WPF
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
+        private static void SaveSession(int userId, string apiKey)
+        {
+            string dir  = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WClouds");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, "session.json");
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                UserId = userId,
+                ApiKey = apiKey,
+                ApiUrl = Webservice.HttpClient.BaseAddress?.ToString() ?? "http://127.0.0.1:8000"
+            }));
+        }
+
+        private static void LaunchSyncProcess()
+        {
+            string syncExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WCloudsSync.exe");
+            if (!File.Exists(syncExe)) return;
+
+            // Bereits laufende Instanz nicht doppelt starten
+            if (Process.GetProcessesByName("WCloudsSync").Length > 0) return;
+
+            Process.Start(new ProcessStartInfo(syncExe)
+            {
+                UseShellExecute  = false,
+                CreateNoWindow   = true,
+                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
+            });
+        }
+
         private void Back_Click(object sender, RoutedEventArgs e)
         {
             if (Application.Current.MainWindow is MainWindow main)

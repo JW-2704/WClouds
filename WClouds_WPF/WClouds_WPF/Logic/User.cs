@@ -14,6 +14,10 @@ namespace WClouds_WPF.Logic
         public int Id { get; set; }
         public string Email { get; set; }
         public int Storage_Plan { get; set; }
+        // AI Agent: Public Keys sind unkritisch (per Definition oeffentlich)
+        // - wird fuer den Share-Flow gebraucht, um den DEK fuer den
+        // Empfaenger zu wrappen.
+        public string? Public_Key { get; set; }
 
         public async Task<User?> GetUser(int UserID)
         {
@@ -39,13 +43,21 @@ namespace WClouds_WPF.Logic
         }
         public async Task<int?> GetUserIdByEmail(string email)
         {
+            User? user = await GetUserByEmail(email);
+            return user?.Id;
+        }
+
+        // AI Agent: liefert den ganzen User inkl. Public_Key, damit der
+        // Share-Dialog den DEK fuer den Empfaenger wrappen kann, ohne einen
+        // zweiten Request zu brauchen.
+        public async Task<User?> GetUserByEmail(string email)
+        {
             HttpResponseMessage response = await Webservice.HttpClient.GetAsync($"/user/by-email/{Uri.EscapeDataString(email)}");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return null;
             response.EnsureSuccessStatusCode();
             string body = await response.Content.ReadAsStringAsync();
-            User? user = JsonSerializer.Deserialize<User>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return user?.Id;
+            return JsonSerializer.Deserialize<User>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
     }
 }

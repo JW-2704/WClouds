@@ -14,6 +14,22 @@ public abstract class WebserviceTestBase : IDisposable
     protected readonly MockHttpMessageHandler MockHttp;
     private readonly HttpClient _originalClient;
 
+    // AI Agent: UploadFile/DownloadFile/ShareDialog brauchen jetzt ein
+    // initialisiertes RSA-Keypair (EncryptionService.Initialize) statt des
+    // alten globalen Geraete-Keys. Einmaliges Setup hier, von allen Tests
+    // wiederverwendbar (static readonly -> laeuft nur einmal pro Testlauf).
+    private const int TestUserId = 999001;
+    protected static readonly string TestPublicKey = EnsureTestKeypair();
+
+    private static string EnsureTestKeypair()
+    {
+        string tempId = $"test-{TestUserId}";
+        string publicKey = EncryptionService.GenerateAndStoreNewKeypair(tempId);
+        EncryptionService.PersistKeypairForUser(tempId, TestUserId);
+        EncryptionService.Initialize(TestUserId);
+        return publicKey;
+    }
+
     protected WebserviceTestBase()
     {
         _originalClient = Webservice.HttpClient;

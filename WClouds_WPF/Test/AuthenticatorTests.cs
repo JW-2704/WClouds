@@ -12,6 +12,14 @@ public class AuthenticatorTests : WebserviceTestBase
 {
     private readonly Authenticator _sut = new();
 
+    // AI Agent: Register() generiert jetzt lokal ein RSA-Keypair, sendet
+    // den Public Key mit und parst die Server-Antwort nach "id", um den
+    // temporaeren Key auf die echte userId umzubenennen - die Mock-Antwort
+    // muss daher ein echtes JSON-Objekt mit "id" sein statt eines blossen
+    // Strings.
+    private static readonly string RegisterOkPayload =
+        JsonSerializer.Serialize(new { id = 12345, email = "test@example.com", storage_plan = 100 });
+
     // ── Register ────────────────────────────────────────────────────────────
 
     [Fact]
@@ -19,11 +27,11 @@ public class AuthenticatorTests : WebserviceTestBase
     {
         MockHttp
             .When(HttpMethod.Post, "http://localhost/user/register")
-            .Respond(HttpStatusCode.OK, "application/json", "\"registered\"");
+            .Respond(HttpStatusCode.OK, "application/json", RegisterOkPayload);
 
         string result = await _sut.Register("test@example.com", "password123", "my-storage-key");
 
-        Assert.Equal("\"registered\"", result);
+        Assert.Equal(RegisterOkPayload, result);
     }
 
     [Fact]
@@ -38,7 +46,7 @@ public class AuthenticatorTests : WebserviceTestBase
                 capturedBody = req.Content!.ReadAsStringAsync().Result;
                 return true;
             })
-            .Respond(HttpStatusCode.OK, "application/json", "\"ok\"");
+            .Respond(HttpStatusCode.OK, "application/json", RegisterOkPayload);
 
         await _sut.Register("u@u.com", "hunter2", "key");
 
@@ -60,7 +68,7 @@ public class AuthenticatorTests : WebserviceTestBase
         MockHttp
             .When(HttpMethod.Post, "http://localhost/user/register")
             .With(req => { capturedBody = req.Content!.ReadAsStringAsync().Result; return true; })
-            .Respond(HttpStatusCode.OK, "application/json", "\"ok\"");
+            .Respond(HttpStatusCode.OK, "application/json", RegisterOkPayload);
 
         await _sut.Register("u@u.com", "pass", "raw-storage-key");
 
@@ -68,6 +76,25 @@ public class AuthenticatorTests : WebserviceTestBase
         string encodedKey = doc.RootElement.GetProperty("storage_plan_key").GetString()!;
         string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encodedKey));
         Assert.Equal("raw-storage-key", decoded);
+    }
+
+    [Fact]
+    public async Task Register_SendsPublicKey()
+    {
+        string? capturedBody = null;
+
+        MockHttp
+            .When(HttpMethod.Post, "http://localhost/user/register")
+            .With(req => { capturedBody = req.Content!.ReadAsStringAsync().Result; return true; })
+            .Respond(HttpStatusCode.OK, "application/json", RegisterOkPayload);
+
+        await _sut.Register("u@u.com", "pass", "key");
+
+        using var doc = JsonDocument.Parse(capturedBody!);
+        string publicKey = doc.RootElement.GetProperty("public_key").GetString()!;
+        Assert.False(string.IsNullOrWhiteSpace(publicKey));
+        // Muss als gueltiges Base64 einer RSA-SubjectPublicKeyInfo decodierbar sein
+        Assert.True(Convert.FromBase64String(publicKey).Length > 100);
     }
 
     [Fact]
@@ -83,9 +110,21 @@ public class AuthenticatorTests : WebserviceTestBase
 
     // ── Login ────────────────────────────────────────────────────────────────
 
+    // AI Agent: Login() ruft jetzt EncryptionService.Initialize(userId) auf,
+    // das ohne lokal vorhandenen Private Key bewusst wirft (siehe
+    // EncryptionService-Kommentar zu Multi-Device). Tests muessen daher
+    // vorher einen Keypair fuer die jeweilige Test-userId anlegen.
+    private static void EnsureLocalKeypairFor(int userId)
+    {
+        string tempId = $"login-test-{Guid.NewGuid()}";
+        EncryptionService.GenerateAndStoreNewKeypair(tempId);
+        EncryptionService.PersistKeypairForUser(tempId, userId);
+    }
+
     [Fact]
     public async Task Login_ValidCredentials_ReturnsLoginResponse()
     {
+        EnsureLocalKeypairFor(42);
         var responsePayload = JsonSerializer.Serialize(new { session_key = "abc123", user_id = 42 });
 
         MockHttp
@@ -101,6 +140,7 @@ public class AuthenticatorTests : WebserviceTestBase
     [Fact]
     public async Task Login_SetsApiKeyOnWebservice()
     {
+        EnsureLocalKeypairFor(1);
         var responsePayload = JsonSerializer.Serialize(new { session_key = "session-xyz", user_id = 1 });
 
         MockHttp
@@ -115,6 +155,7 @@ public class AuthenticatorTests : WebserviceTestBase
     [Fact]
     public async Task Login_HashesPassword()
     {
+        EnsureLocalKeypairFor(1);
         string? capturedBody = null;
         var responsePayload = JsonSerializer.Serialize(new { session_key = "key", user_id = 1 });
 
@@ -140,5 +181,21 @@ public class AuthenticatorTests : WebserviceTestBase
 
         await Assert.ThrowsAsync<HttpRequestException>(
             () => _sut.Login("u@u.com", "wrong"));
+    }
+
+    [Fact]
+    public async Task Login_NoLocalKeypair_ThrowsInvalidOperationException()
+    {
+        // AI Agent: simuliert Login auf einem neuen Geraet fuer einen
+        // Account, der hier noch nie registriert wurde - muss klar
+        // scheitern statt einen neuen (inkompatiblen) Keypair zu erzeugen.
+        int neverRegisteredUserId = -Math.Abs(Guid.NewGuid().GetHashCode());
+        var responsePayload = JsonSerializer.Serialize(new { session_key = "x", user_id = neverRegisteredUserId });
+
+        MockHttp
+            .When(HttpMethod.Post, "http://localhost/user/login")
+            .Respond(HttpStatusCode.OK, "application/json", responsePayload);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _sut.Login("u@u.com", "pass"));
     }
 }

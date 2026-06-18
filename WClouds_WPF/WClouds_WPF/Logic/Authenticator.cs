@@ -23,14 +23,43 @@ namespace WClouds_WPF.Logic
         }
         // KI Ende
 
+        // AI Agent: Public-Key-Upload passiert NUR hier bei Register,
+        // niemals bei Login (siehe EncryptionService.Initialize). Der
+        // Keypair muss VOR dem Request existieren (Public Key ist Teil des
+        // Bodys), die echte userId aber erst NACH der Server-Antwort
+        // bekannt ist - deshalb zuerst unter einem temporären Bezeichner
+        // erzeugen und nach Erfolg auf die echte userId umbenennen.
         public async Task<string> Register(string email, string password, string storage_key)
         {
             string hashedPassword = HashPassword(password);
             string encodedKey = EncodeKey(storage_key);
 
-            var response = await Webservice.HttpClient.PostAsJsonAsync("/user/register",new{email, password = hashedPassword, storage_plan_key = encodedKey});
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsStringAsync();
+            string tempKeyId = Guid.NewGuid().ToString();
+            string publicKey = EncryptionService.GenerateAndStoreNewKeypair(tempKeyId);
+
+            try
+            {
+                var response = await Webservice.HttpClient.PostAsJsonAsync("/user/register", new
+                {
+                    email,
+                    password = hashedPassword,
+                    storage_plan_key = encodedKey,
+                    public_key = publicKey
+                });
+                response.EnsureSuccessStatusCode();
+
+                string body = await response.Content.ReadAsStringAsync();
+                using JsonDocument doc = JsonDocument.Parse(body);
+                int userId = doc.RootElement.GetProperty("id").GetInt32();
+                EncryptionService.PersistKeypairForUser(tempKeyId, userId);
+
+                return body;
+            }
+            catch
+            {
+                EncryptionService.DiscardTempKeypair(tempKeyId);
+                throw;
+            }
         }
 
         public async Task<LoginResponse> Login(string email, string password)
@@ -44,6 +73,10 @@ namespace WClouds_WPF.Logic
             LoginResponse loginResponse = JsonSerializer.Deserialize<LoginResponse>(body)!;
 
             Webservice.SetApiKey(loginResponse.session_key);
+            // AI Agent: laedt NUR den lokal vorhandenen Private Key dieses
+            // Accounts - generiert NIE einen neuen (siehe Begründung in
+            // EncryptionService.Initialize).
+            EncryptionService.Initialize(loginResponse.user_id);
             return loginResponse;
         }
     }

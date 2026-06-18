@@ -1,5 +1,4 @@
 ﻿using Serilog;
-using System.Collections.Generic;
 using System.Windows;
 using WClouds_WPF.Logic;
 // AI Prompt: i now have created a share button and i want it to pop up a little window where you can type in the email of the user and check read write access
@@ -10,6 +9,7 @@ namespace WClouds_WPF
         private readonly int _fileId;
         private readonly ShareService _shareService = new();
         private readonly User _userService = new();
+        private readonly StorageService _storageService = new();
 
         public ShareDialog(int fileId)
         {
@@ -32,16 +32,31 @@ namespace WClouds_WPF
 
             try
             {
-                int? memberId = await _userService.GetUserIdByEmail(email);
+                // AI Agent: braucht jetzt den vollen User (inkl. Public Key),
+                // um den DEK fuer den Empfaenger zu wrappen.
+                User? recipient = await _userService.GetUserByEmail(email);
 
-                if (memberId == null)
+                if (recipient == null)
                 {
                     ShowError("Kein Benutzer mit dieser E-Mail-Adresse gefunden.");
                     return;
                 }
 
+                if (string.IsNullOrEmpty(recipient.Public_Key))
+                {
+                    ShowError("Dieser Benutzer hat keinen Verschlüsselungs-Schlüssel registriert.");
+                    return;
+                }
+
+                // Eigenen DEK fuer diese Datei holen+entpacken, dann mit dem
+                // Public Key des Empfaengers neu wrappen - der Server sieht
+                // den rohen DEK dabei nie.
+                byte[] dek = await _storageService.GetDek(_fileId);
+                string wrappedKeyForRecipient = EncryptionService.WrapKey(dek, recipient.Public_Key);
+
                 await _shareService.ShareFile(
-                    MemberIDs: new List<int> { memberId.Value },
+                    MemberID: recipient.Id,
+                    WrappedKey: wrappedKeyForRecipient,
                     CanRead: CanReadBox.IsChecked == true,
                     CanWrite: CanWriteBox.IsChecked == true,
                     FileID: _fileId

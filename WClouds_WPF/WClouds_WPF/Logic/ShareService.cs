@@ -11,12 +11,17 @@ namespace WClouds_WPF.Logic
     public class ShareService
     {
         // AI Prompt: Please implement the missing Share Service Requests
-        public async Task ShareFile(List<int> MemberIDs, bool CanRead, bool CanWrite, int FileID)
+        // AI Agent: memberIds:list<int> -> grants:[{memberId, wrappedKey}]
+        // - jeder Empfaenger braucht einen individuell mit seinem Public
+        // Key gewrappten DEK, ein gemeinsames ID-Array reicht nicht mehr.
+        // ShareDialog teilt ohnehin nur an einen Empfaenger pro Durchlauf,
+        // daher reicht ein einzelner Grant statt einer Liste.
+        public async Task ShareFile(int MemberID, string WrappedKey, bool CanRead, bool CanWrite, int FileID)
         {
             var shareRequest = new
             {
                 fileId = FileID,
-                memberIds = MemberIDs,
+                grants = new[] { new { memberId = MemberID, wrappedKey = WrappedKey } },
                 canRead = CanRead,
                 canWrite = CanWrite
             };

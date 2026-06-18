@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using WClouds_WPF.Logic;
 
@@ -15,6 +16,13 @@ namespace WClouds_WPF
     {
         private readonly StorageService storageService = new StorageService();
         private readonly ShareService shareService = new ShareService();
+
+        // Kompletter Ordnerbaum des Users, einmal geladen, damit beim
+        // Navigieren im FolderTree nicht jedes Mal die ganze Struktur neu
+        // vom Server geholt werden muss - nur die Info pro Eintrag wird
+        // pro Ordnerwechsel frisch nachgeladen.
+        private SavedDirectory? rootDirectory;
+        private List<SharedFile>? sharedFilesCache;
 
         private int? selectedFileId = null;
         private string? selectedFileName;
@@ -27,12 +35,14 @@ namespace WClouds_WPF
         private int? GetSelectedFolderId()
         {
             Log.Logger.Debug("GetSelectedFolderId called");
-            if (FileTree.SelectedItem is TreeViewItem item)
-            {
-                if (item.Tag is int folderId) return folderId;
-                if (item.Tag is (int, string)) return null;
-                if (item.Tag is (int, string, bool, bool)) return null;
-            }
+            // AI Agent: Tag == -1 ist der Sentinel-Wert fuer den
+            // "Geteilt mit mir"-Knoten (siehe BuildSharedTreeItem) -
+            // kein echter Ordner. War dieser Knoten ausgewaehlt, wurde
+            // -1 bisher als Ziel-Ordner-ID an Upload/UploadDirectory
+            // durchgereicht -> Backend findet Ordner "-1" nicht -> 404
+            // -> verwirrender Fehler-Popup beim Hoch-/Ordnerladen.
+            if (FolderTree.SelectedItem is TreeViewItem item && item.Tag is int folderId && folderId != -1)
+                return folderId;
             return null;
         }
 
@@ -42,16 +52,21 @@ namespace WClouds_WPF
             Log.Logger.Information("Loading files for user {UserId}", App.CurrentUserId);
             try
             {
-                FileTree.Items.Clear();
-                SavedDirectory? root = await storageService.GetRootDirectory(App.CurrentUserId);
-                if (root != null)
-                    FileTree.Items.Add(BuildTreeItem(root));
+                FolderTree.Items.Clear();
+                FileList.ItemsSource = null;
 
-                List<SharedFile>? sharedFiles = await shareService.GetSharedWithMe(App.CurrentUserId);
-                if (sharedFiles != null && sharedFiles.Count > 0)
-                    FileTree.Items.Add(BuildSharedTreeItem(sharedFiles));
+                rootDirectory = await storageService.GetRootDirectory(App.CurrentUserId);
+                if (rootDirectory != null)
+                {
+                    FolderTree.Items.Add(BuildFolderTreeItem(rootDirectory));
+                    await LoadFolderContents(rootDirectory);
+                }
 
-                if (FileTree.Items.Count == 0)
+                sharedFilesCache = await shareService.GetSharedWithMe(App.CurrentUserId);
+                if (sharedFilesCache != null && sharedFilesCache.Count > 0)
+                    FolderTree.Items.Add(BuildSharedTreeItem(sharedFilesCache));
+
+                if (FolderTree.Items.Count == 0)
                     SetStatus("Keine Dateien gefunden.");
                 else
                     SetStatus("Bereit.");
@@ -63,35 +78,191 @@ namespace WClouds_WPF
             }
         }
 
+        // Baut den Ordnerbaum (nur Ordner, keine Dateien mehr - die
+        // stehen jetzt rechts in der Detailliste mit den Info-Spalten).
+        private TreeViewItem BuildFolderTreeItem(SavedDirectory directory)
+        {
+            var folderItem = new TreeViewItem
+            {
+                Header = BuildHeader(GetFolderIcon(directory), directory.Name ?? "Root"),
+                Tag = directory.ID
+            };
+
+            foreach (SavedDirectory subDir in directory.SubDirectories)
+                folderItem.Items.Add(BuildFolderTreeItem(subDir));
+
+            return folderItem;
+        }
+
         // KI Start | Prompt: Bau mir die Treeview für die geteilten Dateien
         private TreeViewItem BuildSharedTreeItem(List<SharedFile> sharedFiles)
         {
-
             Log.Logger.Debug("BuildSharedTreeItem called with {Count} shared files", sharedFiles?.Count ?? 0);
 
-            var sharedFolder = new TreeViewItem
+            // Die einzelnen Dateien werden nicht mehr als Kind-Knoten im
+            // Baum aufgehängt, sondern erst beim Auswaehlen dieses Knotens
+            // in die rechte Detailliste geladen (siehe LoadSharedContents).
+            return new TreeViewItem
             {
                 Header = BuildHeader("🤝", "Geteilt mit mir"),
                 Tag = -1   // sentinel: not a real folder ID
             };
-
-            foreach (SharedFile file in sharedFiles)
-            {
-                string fullName = $"{file.FileName}{file.Extension}";
-                string icon = GetFileIcon(file.Extension);
-                string label = fullName + (file.CanWrite ? "" : " 🔒");
-
-                var fileItem = new TreeViewItem
-                {
-                    Header = BuildHeader(icon, label),
-                    Tag = (file.ID, fullName, file.CanRead, file.CanWrite)
-                };
-                sharedFolder.Items.Add(fileItem);
-            }
-
-            return sharedFolder;
         }
         // KI Ende
+
+        private static SavedDirectory? FindDirectory(SavedDirectory? root, int id)
+        {
+            if (root == null) return null;
+            if (root.ID == id) return root;
+
+            foreach (var sub in root.SubDirectories)
+            {
+                var found = FindDirectory(sub, id);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private async void FolderTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (e.NewValue is not TreeViewItem item) return;
+
+            if (item.Tag is int tag && tag == -1)
+            {
+                await LoadSharedContents();
+                return;
+            }
+
+            if (item.Tag is int folderId)
+            {
+                SavedDirectory? dir = FindDirectory(rootDirectory, folderId);
+                if (dir != null)
+                    await LoadFolderContents(dir);
+            }
+        }
+
+        // Füllt die rechte Liste mit dem Inhalt eines Ordners - pro
+        // Unterordner/Datei wird Info (Name, Size, ChangedDate,
+        // ChangedTime, Owner, ChangedUser) vom Server nachgeladen.
+        private async Task LoadFolderContents(SavedDirectory directory)
+        {
+            SetStatus($"Lade Inhalt von \"{directory.Name ?? "Root"}\"…");
+
+            var entries = new List<FileExplorerEntry>();
+
+            foreach (SavedDirectory sub in directory.SubDirectories)
+            {
+                Info? info = await storageService.GetDirectoryInfos(sub.ID);
+                if (info != null)
+                    entries.Add(new FileExplorerEntry(info, sub.ID, isFolder: true));
+            }
+
+            foreach (SavedFile file in directory.Content)
+            {
+                Info? info = await storageService.GetFileInfos(file.ID);
+                if (info != null)
+                    entries.Add(new FileExplorerEntry(info, file.ID, isFolder: false));
+            }
+
+            FileList.ItemsSource = entries;
+            UpdateButtonStates(null);
+            SetStatus("Bereit.");
+        }
+
+        // Nutzt die in LoadFiles() bereits geladene Liste (sharedFilesCache)
+        // - kein erneuter Server-Call fuer die Liste selbst noetig, nur die
+        // Info pro Datei wird geholt (GetFileInfos braucht nur can_read,
+        // das haben geteilte Dateien per Definition).
+        private async Task LoadSharedContents()
+        {
+            SetStatus("Lade geteilte Dateien…");
+
+            var entries = new List<FileExplorerEntry>();
+            if (sharedFilesCache != null)
+            {
+                foreach (SharedFile file in sharedFilesCache)
+                {
+                    Info? info = await storageService.GetFileInfos(file.ID);
+                    Info effective = info ?? new Info(null, null, 0, 0, 0, $"{file.FileName}{file.Extension}");
+
+                    entries.Add(new FileExplorerEntry(
+                        effective, file.ID, isFolder: false,
+                        isShared: true, canRead: file.CanRead, canWrite: file.CanWrite));
+                }
+            }
+
+            FileList.ItemsSource = entries;
+            UpdateButtonStates(null);
+            SetStatus(entries.Count == 0 ? "Keine geteilten Dateien." : "Bereit.");
+        }
+
+        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateButtonStates(FileList.SelectedItem as FileExplorerEntry);
+        }
+
+        private void UpdateButtonStates(FileExplorerEntry? entry)
+        {
+            if (entry == null)
+            {
+                selectedFileId = null;
+                selectedFileName = null;
+                DownloadBtn.IsEnabled = false;
+                ShareBtn.IsEnabled = false;
+                OverwriteBtn.IsEnabled = false;
+                return;
+            }
+
+            if (entry.IsFolder)
+            {
+                selectedFileId = null;
+                selectedFileName = null;
+                DownloadBtn.IsEnabled = true; // ganzer Ordner kann runtergeladen werden
+                ShareBtn.IsEnabled = false;
+                OverwriteBtn.IsEnabled = false;
+                return;
+            }
+
+            selectedFileId = entry.Id;
+            selectedFileName = entry.Name;
+            DownloadBtn.IsEnabled = !entry.IsShared || entry.CanRead;
+            ShareBtn.IsEnabled = !entry.IsShared; // teilen nur bei eigenen Dateien
+
+            // Eigene Datei -> immer Schreibzugriff.
+            // AI Agent: Ueberschreiben-Button nur bei can_write
+            // freigegeben (geteilte Datei mit Schreibzugriff).
+            OverwriteBtn.IsEnabled = !entry.IsShared || entry.CanWrite;
+        }
+
+        // Doppelklick auf einen Ordner in der Liste -> im FolderTree
+        // dorthin navigieren (löst FolderTree_SelectedItemChanged aus).
+        private void FileList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (FileList.SelectedItem is not FileExplorerEntry entry || !entry.IsFolder) return;
+            SelectFolderInTree(FolderTree.Items, entry.Id);
+        }
+
+        private bool SelectFolderInTree(ItemCollection items, int folderId)
+        {
+            foreach (var obj in items)
+            {
+                if (obj is not TreeViewItem item) continue;
+
+                if (item.Tag is int id && id == folderId)
+                {
+                    item.IsSelected = true;
+                    item.IsExpanded = true;
+                    return true;
+                }
+
+                if (SelectFolderInTree(item.Items, folderId))
+                {
+                    item.IsExpanded = true;
+                    return true;
+                }
+            }
+            return false;
+        }
 
         private async void Refresh_Click(object sender, RoutedEventArgs e)
         {
@@ -139,155 +310,121 @@ namespace WClouds_WPF
         }
         // KI Ende
 
-
         // KI Start | Prompt: DownloadFile_Click soll die Datei herunterladen und entschlüsseln und auch ganze Ordner herunterladen können
         private async void DownloadFile_Click(object sender, RoutedEventArgs e)
         {
             Log.Logger.Information("DownloadFile_Click triggered by user {UserId}", App.CurrentUserId);
-            if (FileTree.SelectedItem is not TreeViewItem item) return;
 
-            if (item.Tag is (int sharedFileId, string sharedFileName, bool canRead, bool _))
+            if (FileList.SelectedItem is FileExplorerEntry entry)
             {
-                Log.Logger.Debug("Downloading shared file {SharedFileId} (canRead={CanRead})", sharedFileId, canRead);
-                if (!canRead)
+                if (entry.IsFolder)
+                {
+                    await DownloadFolder(entry.Id);
+                    return;
+                }
+
+                if (entry.IsShared && !entry.CanRead)
                 {
                     SetStatus("⚠ Kein Lesezugriff auf diese Datei.");
                     return;
                 }
 
-                var dialog = new SaveFileDialog
-                {
-                    Title = "Datei speichern unter…",
-                    Filter = "Alle Dateien (*.*)|*.*",
-                    FileName = sharedFileName
-                };
-                if (dialog.ShowDialog() != true) return;
-                SetStatus("Lade herunter…");
-                DownloadBtn.IsEnabled = false;
-                try
-                {
-                    byte[]? decrypted = await storageService.DownloadFile(sharedFileId);
-                    if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
-                    await File.WriteAllBytesAsync(dialog.FileName, decrypted);
-                    Log.Logger.Information("Downloaded shared file {SharedFileId} to {Path}", sharedFileId, dialog.FileName);
-                    SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
-                }
-                catch (Exception ex) { Log.Logger.Error(ex, "Download failed for shared file {SharedFileId}", sharedFileId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
-                finally { DownloadBtn.IsEnabled = true; }
+                await DownloadSingleFile(entry.Id, entry.Name, entry.IsShared);
+                return;
             }
 
-            else if (item.Tag is (int fileId, string fileName))
-            {
-                Log.Logger.Debug("Downloading own file {FileId}", fileId);
-                var dialog = new SaveFileDialog
-                {
-                    Title = "Datei speichern unter…",
-                    Filter = "Alle Dateien (*.*)|*.*",
-                    FileName = fileName
-                };
-                if (dialog.ShowDialog() != true) return;
-                SetStatus("Lade herunter…");
-                DownloadBtn.IsEnabled = false;
-                try
-                {
-                    byte[]? decrypted = await storageService.DownloadFile(fileId);
-                    if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
-                    await File.WriteAllBytesAsync(dialog.FileName, decrypted);
-                    Log.Logger.Information("Downloaded file {FileId} to {Path}", fileId, dialog.FileName);
-                    SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
-                }
-                catch (Exception ex) { Log.Logger.Error(ex, "Download failed for file {FileId}", fileId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
-                finally { DownloadBtn.IsEnabled = true; }
-            }
-            else if (item.Tag is int folderId && folderId != -1)
-            {
-                Log.Logger.Debug("Downloading folder {FolderId}", folderId);
-                var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Zielordner auswählen" };
-                if (dialog.ShowDialog() != true) return;
-                SetStatus("Lade Ordner herunter…");
-                DownloadBtn.IsEnabled = false;
-                try
-                {
-                    await storageService.DownloadDirectory(folderId, dialog.FolderName);
-                    Log.Logger.Information("Downloaded folder {FolderId} to {Path}", folderId, dialog.FolderName);
-                    SetStatus("✔ Ordner gespeichert.");
-                }
-                catch (Exception ex) { Log.Logger.Error(ex, "Download folder failed for {FolderId}", folderId); SetStatus("⚠ Download fehlgeschlagen."); MessageBox.Show(ex.Message); }
-                finally { DownloadBtn.IsEnabled = true; }
-            }
-        }
-        // KI Ende
-
-        private void FileTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-        {
-            if (e.NewValue is TreeViewItem item)
-            {
-                if (item.Tag is (int sharedFileId, string sharedFileName, bool canRead, bool canWrite))
-                {
-                    selectedFileId = sharedFileId;
-                    selectedFileName = sharedFileName;
-                    DownloadBtn.IsEnabled = canRead;
-                    ShareBtn.IsEnabled = false;
-                }
-
-                else if (item.Tag is (int fileId, string fileName))
-                {
-                    selectedFileId = fileId;
-                    selectedFileName = fileName;
-                    DownloadBtn.IsEnabled = true;
-                    ShareBtn.IsEnabled = IsOwnFile(fileId);
-                }
-                else if (item.Tag is int folderId && folderId != -1)
-                {
-                    selectedFileId = null;
-                    selectedFileName = null;
-                    DownloadBtn.IsEnabled = true;
-                    ShareBtn.IsEnabled = false;
-                }
-                else
-                {
-                    selectedFileId = null;
-                    selectedFileName = null;
-                    DownloadBtn.IsEnabled = false;
-                    ShareBtn.IsEnabled = false;
-                }
-            }
+            // Nichts in der Liste ausgewählt -> aktuell geöffneten Ordner herunterladen
+            if (FolderTree.SelectedItem is TreeViewItem folderItem && folderItem.Tag is int folderId && folderId != -1)
+                await DownloadFolder(folderId);
         }
 
-        // KI Start | Prompt: Wie kann ich erkennen ob die ausgewählte Datei eine eigene Datei ist oder eine geteilte Datei?
-        private bool IsOwnFile(int fileId)
+        private async Task DownloadSingleFile(int fileId, string fileName, bool isShared)
         {
-            if (FileTree.SelectedItem is not TreeViewItem selected) return false;
-            var parent = selected.Parent as TreeViewItem;
-            return parent?.Tag is not -1 || parent?.Tag is null;
-        }
-        // KI Ende
-
-        private TreeViewItem BuildTreeItem(SavedDirectory directory)
-        {
-            var folderItem = new TreeViewItem
+            Log.Logger.Debug(isShared ? "Downloading shared file {FileId}" : "Downloading own file {FileId}", fileId);
+            var dialog = new SaveFileDialog
             {
-                Header = BuildHeader(GetFolderIcon(directory), directory.Name ?? "Root"),
-                Tag = directory.ID
+                Title = "Datei speichern unter…",
+                Filter = "Alle Dateien (*.*)|*.*",
+                FileName = fileName
             };
+            if (dialog.ShowDialog() != true) return;
 
-            foreach (SavedDirectory subDir in directory.SubDirectories)
-                folderItem.Items.Add(BuildTreeItem(subDir));
-
-            foreach (SavedFile file in directory.Content)
+            SetStatus("Lade herunter…");
+            DownloadBtn.IsEnabled = false;
+            try
             {
-                string fullName = $"{file.FileName}{file.Extension}";
-                var fileItem = new TreeViewItem
-                {
-                    Header = BuildHeader(GetFileIcon(file.Extension), fullName),
-                    Tag = (file.ID, fullName)
-                };
-                folderItem.Items.Add(fileItem);
+                byte[]? decrypted = await storageService.DownloadFile(fileId);
+                if (decrypted == null) { SetStatus("⚠ Download fehlgeschlagen."); return; }
+                await File.WriteAllBytesAsync(dialog.FileName, decrypted);
+                Log.Logger.Information("Downloaded file {FileId} to {Path}", fileId, dialog.FileName);
+                SetStatus($"✔ Datei gespeichert unter {dialog.FileName}");
             }
-
-            return folderItem;
+            catch (Exception ex)
+            {
+                Log.Logger.Error(ex, "Download failed for file {FileId}", fileId);
+                SetStatus("⚠ Download fehlgeschlagen.");
+                MessageBox.Show(ex.Message);
+            }
+            finally { DownloadBtn.IsEnabled = true; }
         }
 
+        private async Task DownloadFolder(int folderId)
+        {
+            Log.Logger.Debug("Downloading folder {FolderId}", folderId);
+            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Zielordner auswählen" };
+            if (dialog.ShowDialog() != true) return;
+
+            SetStatus("Lade Ordner herunter…");
+            DownloadBtn.IsEnabled = false;
+            try
+            {
+                await storageService.DownloadDirectory(folderId, dialog.FolderName);
+                Log.Logger.Information("Downloaded folder {FolderId} to {Path}", folderId, dialog.FolderName);
+                SetStatus("✔ Ordner gespeichert.");
+            }
+            catch (Exception ex)
+            {
+                Log.Logger.Error(ex, "Download folder failed for {FolderId}", folderId);
+                SetStatus("⚠ Download fehlgeschlagen.");
+                MessageBox.Show(ex.Message);
+            }
+            finally { DownloadBtn.IsEnabled = true; }
+        }
+        // KI Ende
+
+        // AI Agent: neues Feature - Inhalt einer Datei ersetzen, fuer
+        // eigene Dateien immer moeglich, fuer geteilte nur mit can_write
+        // (siehe Gating in UpdateButtonStates).
+        private async void OverwriteFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedFileId == null) return;
+
+            var dialog = new OpenFileDialog
+            {
+                Title = "Neue Version auswählen",
+                Filter = "Alle Dateien (*.*)|*.*",
+                Multiselect = false
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            SetStatus($"Überschreibe \"{selectedFileName}\"…");
+            OverwriteBtn.IsEnabled = false;
+            try
+            {
+                byte[] newContent = await File.ReadAllBytesAsync(dialog.FileName);
+                await storageService.OverwriteFile(selectedFileId.Value, newContent);
+                Log.Logger.Information("Overwrote file {FileId} with {Path}", selectedFileId, dialog.FileName);
+                SetStatus($"✔ \"{selectedFileName}\" überschrieben.");
+                await LoadFiles();
+            }
+            catch (Exception ex)
+            {
+                Log.Logger.Error(ex, "Overwrite failed for file {FileId}", selectedFileId);
+                SetStatus("⚠ Überschreiben fehlgeschlagen.");
+                MessageBox.Show($"Fehler beim Überschreiben:\n{ex.Message}");
+            }
+            finally { OverwriteBtn.IsEnabled = true; }
+        }
 
         // KI Start | Prompt: Ich will die Icons und Labels in der TreeView, wie mach ich das
         private StackPanel BuildHeader(string icon, string label)
@@ -314,7 +451,7 @@ namespace WClouds_WPF
         private static string GetFolderIcon(SavedDirectory dir) =>
             (dir.Name == null || dir.Name == "Root") ? "☁" : "📁";
 
-        private static string GetFileIcon(string? ext) => ("." + (ext ?? "").ToLower().TrimStart('.')) switch
+        public static string GetFileIcon(string? ext) => ("." + (ext ?? "").ToLower().TrimStart('.')) switch
         {
             ".pdf" => "📄",
             ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" => "🖼️",
@@ -331,7 +468,6 @@ namespace WClouds_WPF
         // KI Ende
 
         private void SetStatus(string message) => StatusText.Text = message;
-
 
         // KI Start | Prompt: Wie würde das sharen aussehen im xaml.cs teil
         private void ShareBtn_Click(object sender, RoutedEventArgs e)
@@ -365,7 +501,7 @@ namespace WClouds_WPF
             {
                 return;
             }
-                
+
             int? parentFolderId = GetSelectedFolderId();
             SetStatus("Lade Ordner hoch…");
             UploadFileBtn.IsEnabled = false;
@@ -390,7 +526,49 @@ namespace WClouds_WPF
         {
             Webservice.SetApiKey(string.Empty);
             App.CurrentUserId = 0;
+            rootDirectory = null;
+            FileList.ItemsSource = null;
             NavigationService.Navigate(new SignInPage());
         }
+    }
+
+    public record FileExplorerEntry : Info
+    {
+        public int Id { get; }
+        public bool IsFolder { get; }
+
+        // KI Start | Prompt: Wie kann ich erkennen ob die ausgewählte Datei eine eigene Datei ist oder eine geteilte Datei?
+        // (Frueher als IsOwnFile() ueber den Parent-Knoten der TreeView
+        // geraten - jetzt direkt als Flag gesetzt, wenn der Eintrag gebaut
+        // wird: eigene Dateien/Ordner -> IsShared = false in
+        // LoadFolderContents, geteilte Dateien -> IsShared = true in
+        // LoadSharedContents.)
+        public bool IsShared { get; }
+        // KI Ende
+
+        public bool CanRead { get; }
+        public bool CanWrite { get; }
+
+        public FileExplorerEntry(Info info, int id, bool isFolder,
+            bool isShared = false, bool canRead = true, bool canWrite = true)
+            : base(info.ChangedDate, info.ChangedTime, info.Size, info.ChangedUser, info.Owner, info.Name)
+        {
+            Id = id;
+            IsFolder = isFolder;
+            IsShared = isShared;
+            CanRead = canRead;
+            CanWrite = canWrite;
+        }
+
+        public string Icon => IsFolder ? "📁" : DataPage.GetFileIcon(Path.GetExtension(Name));
+
+        public string SizeDisplay => $"{Size:N3} MB";
+
+        public string ChangedDisplay =>
+            ChangedDate.HasValue ? $"{ChangedDate:dd.MM.yyyy} {ChangedTime}" : "—";
+
+        // Schloss-Symbol nur bei geteilten Dateien ohne Schreibrecht
+        public Visibility LockVisibility =>
+            (IsShared && !CanWrite) ? Visibility.Visible : Visibility.Collapsed;
     }
 }
