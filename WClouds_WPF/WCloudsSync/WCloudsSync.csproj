@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>WCloudsSync</RootNamespace>
     <AssemblyName>WCloudsSync</AssemblyName>
+    <!-- CF-API-Offsets im Code sind x64-spezifisch -->
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

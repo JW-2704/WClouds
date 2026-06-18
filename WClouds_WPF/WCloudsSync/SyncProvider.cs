@@ -42,7 +42,7 @@ namespace WCloudsSync
 
         // ── CF Sync Root registrieren ──────────────────────────────────────────
 
-        private void RegisterSyncRoot()
+        private static void RegisterSyncRoot()
         {
             IntPtr namePtr    = Marshal.StringToHGlobalUni("WClouds");
             IntPtr versionPtr = Marshal.StringToHGlobalUni("1.0.0");
@@ -413,5 +413,54 @@ namespace WCloudsSync
 
         private static void Log(string msg) =>
             Console.WriteLine($"[WCloudsSync {DateTime.Now:HH:mm:ss}] {msg}");
+
+        // ── Offline-Verbindung (ohne Session) ──────────────────────────────────
+        // Wenn kein Login vorliegt, trotzdem als Provider verbinden, damit
+        // Explorer nicht 30 Sekunden auf einen Timeout wartet.  Jeder
+        // FetchData-Request wird sofort mit STATUS_UNSUCCESSFUL beantwortet.
+
+        private static long                 _offlineKey;
+        private static CfApi.CF_CALLBACK?   _offlineFetch;   // GC-Anker
+        private static CfApi.CF_CALLBACK?   _offlineCancel;  // GC-Anker
+
+        public static void ConnectOffline()
+        {
+            RegisterSyncRoot(); // idempotent, CF_REGISTER_FLAGS.Update
+
+            _offlineFetch  = (cbInfo, _) => ProvideData(
+                Marshal.ReadInt64(cbInfo, 8),    // connectionKey
+                Marshal.ReadInt64(cbInfo, 112),  // transferKey
+                Marshal.ReadInt64(cbInfo, 144),  // requestKey
+                null, 0, 0, failed: true);
+            _offlineCancel = static (_, _) => { };
+
+            var table = new CfApi.CF_CALLBACK_REGISTRATION[]
+            {
+                new() { Type     = CfApi.CF_CALLBACK_TYPE.FetchData,
+                        Callback = Marshal.GetFunctionPointerForDelegate(_offlineFetch) },
+                new() { Type     = CfApi.CF_CALLBACK_TYPE.CancelFetchData,
+                        Callback = Marshal.GetFunctionPointerForDelegate(_offlineCancel) },
+                new() { Type     = CfApi.CF_CALLBACK_TYPE.None, Callback = IntPtr.Zero },
+            };
+
+            int hr = CfApi.CfConnectSyncRoot(
+                SyncRootPath, table, IntPtr.Zero,
+                CfApi.CF_CONNECT_FLAGS.None, out _offlineKey);
+
+            if (!CfApi.Succeeded(hr))
+                Log($"CfConnectSyncRoot (offline) fehlgeschlagen: 0x{hr:X8}");
+            else
+                Log("Offline-Provider verbunden (Explorer-Hänger verhindert).");
+        }
+
+        public static void DisconnectOffline()
+        {
+            if (_offlineKey != 0)
+            {
+                CfApi.CfDisconnectSyncRoot(_offlineKey);
+                _offlineKey = 0;
+                Log("Offline-Provider getrennt.");
+            }
+        }
     }
 }
