@@ -22,21 +22,37 @@
             <Setter Property="FontSize"        Value="13"/>
         </Style>
         <Style TargetType="ListViewItem">
-            <Setter Property="Background"                    Value="Transparent"/>
-            <Setter Property="Foreground"                    Value="{StaticResource TextPrimary}"/>
-            <Setter Property="FontFamily"                    Value="Segoe UI"/>
-            <Setter Property="FontSize"                      Value="13"/>
-            <Setter Property="Padding"                       Value="4,5"/>
-            <Setter Property="BorderThickness"               Value="0"/>
-            <Setter Property="HorizontalContentAlignment"    Value="Stretch"/>
-            <Style.Triggers>
-                <Trigger Property="IsSelected"  Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-                </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Foreground"                 Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontFamily"                 Value="Segoe UI"/>
+            <Setter Property="FontSize"                   Value="13"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="SnapsToDevicePixels"        Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                CornerRadius="4"
+                                Padding="4,5"
+                                Margin="0,1">
+                            <GridViewRowPresenter
+                                Content="{TemplateBinding Content}"
+                                Columns="{Binding Path=View.Columns,
+                                          RelativeSource={RelativeSource AncestorType=ListView}}"
+                                VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="GridViewColumnHeader">
             <Setter Property="Background"                 Value="#242436"/>
